@@ -1,16 +1,65 @@
-# smart_doc
+🏥 Clinic Queue Management App
 
-A new Flutter project.
+The Clinic Queue Management App is a mobile application built with Flutter to help clinics and doctors organize patient queues more effectively.
+It provides a simple and smart experience for patients, doctors, and clinics by reducing waiting time and improving communication.
 
-## Getting Started
+✨ Features:
 
-This project is a starting point for a Flutter application.
+👨‍⚕️ Patient
 
-A few resources to get you started if this is your first Flutter project:
+Login or enter as a guest.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Fill in personal information before check-in.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Complete a short pre-check questionnaire (symptoms, duration, chronic diseases, medications, allergies).
+
+Receive a queue number and see the estimated waiting time.
+
+Get notified when it’s almost their turn.
+
+🩺 Doctor
+
+View a real-time list of patients in the queue.
+
+Update patient status (waiting → in progress → done → late).
+
+Access patient details with a smart summary generated from questionnaire answers.
+
+Send notifications to the next patient.
+
+📺 Public Queue Screen
+
+Display patient numbers on a TV or tablet inside the clinic.
+
+Highlight the current patient being served.
+
+🌍 Key Highlights
+
+Bilingual support: Arabic & English.
+
+Cross-platform: Android & iOS.
+
+Real-time updates: Powered by Firebase Firestore.
+
+State management: Built with Cubit (Bloc) for clean and scalable code.
+
+🎯 Goal
+
+This app aims to:
+
+Simplify patient experience with self-registration and digital queues.
+
+Help doctors save time with quick patient summaries.
+
+Enhance clinic efficiency and create a professional, modern impression.
+
+🔧 Tech Stack:
+
+
+Flutter
+
+Cubit (Bloc) for state management
+
+Firebase Firestore (real-time database)
+
+Firebase Authentication
