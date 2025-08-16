@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "164791195335",
+    "project_id": "smart-doc-1d42f",
+    "storage_bucket": "smart-doc-1d42f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:164791195335:android:13e4888588bafda4ab90e2",
+        "android_client_info": {
+          "package_name": "com.example.smart_doc"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAabtca6uj49of1hihmT0CAOd1InEQD4e0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
