@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/repositories/auth_repository.dart';
-import '../../data/models/user.dart';
+import '../../data/models/app_user.dart';
 import 'auth_state.dart';
 
 class AuthCubit extends Cubit<AuthState> {
@@ -24,12 +24,17 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  /// Signup with email, password, and role
-  Future<void> signup(String email, String password, String role) async {
+  /// Signup with name, email, password, and role
+  Future<void> signup(
+    String name,
+    String email,
+    String password,
+    UserRole role,
+  ) async {
     try {
       emit(const AuthLoading());
 
-      final user = await _authRepository.signup(email, password, role);
+      final user = await _authRepository.signup(name, email, password, role);
       emit(AuthSuccess(user));
     } on AuthException catch (e) {
       emit(AuthFailure(e.message, code: e.code));
@@ -71,7 +76,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   /// Get current user without changing state
-  Future<User?> getCurrentUser() async {
+  Future<AppUser?> getCurrentUser() async {
     try {
       return await _authRepository.getCurrentUser();
     } catch (e) {
@@ -80,7 +85,7 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   /// Check if current user has a specific role
-  bool hasRole(String role) {
+  bool hasRole(UserRole role) {
     if (state is AuthSuccess) {
       final authState = state as AuthSuccess;
       return authState.user.role == role;
@@ -89,22 +94,31 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   /// Check if current user is a doctor
-  bool get isDoctor => hasRole('doctor');
+  bool get isDoctor => hasRole(UserRole.doctor);
 
   /// Check if current user is a patient
-  bool get isPatient => hasRole('patient');
+  bool get isPatient => hasRole(UserRole.patient);
 
   /// Get current user email
   String? get currentUserEmail {
     if (state is AuthSuccess) {
       final authState = state as AuthSuccess;
-      return authState.user.email;
+      return authState.user.emailOrPhone;
+    }
+    return null;
+  }
+
+  /// Get current user name
+  String? get currentUserName {
+    if (state is AuthSuccess) {
+      final authState = state as AuthSuccess;
+      return authState.user.name;
     }
     return null;
   }
 
   /// Get current user role
-  String? get currentUserRole {
+  UserRole? get currentUserRole {
     if (state is AuthSuccess) {
       final authState = state as AuthSuccess;
       return authState.user.role;
@@ -143,6 +157,18 @@ class AuthCubit extends Cubit<AuthState> {
   void clearError() {
     if (state is AuthFailure) {
       checkAuthStatus();
+    }
+  }
+
+  /// Check if Firestore is available and migrate temporary users
+  Future<void> checkFirestoreAndMigrate() async {
+    try {
+      // This is a temporary solution - in a real app, you'd inject the repository
+      // and call the method directly
+      print('Checking Firestore availability...');
+      // For now, just emit a message - you can implement the actual check later
+    } catch (e) {
+      print('Error checking Firestore: $e');
     }
   }
 }

@@ -1,4 +1,4 @@
-import '../data/repositories/auth_repository_impl.dart';
+import '../data/repositories/firebase_auth_repository_impl.dart';
 import '../domain/repositories/auth_repository.dart';
 
 /// Dependency injection for authentication
@@ -7,7 +7,7 @@ class AuthDependencyInjection {
 
   /// Get the AuthRepository instance
   static AuthRepository get authRepository {
-    _authRepository ??= AuthRepositoryImpl();
+    _authRepository ??= FirebaseAuthRepositoryImpl();
     return _authRepository!;
   }
 

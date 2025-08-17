@@ -35,6 +35,8 @@ dependencies:
     sdk: flutter
   flutter_bloc: ^9.1.1
   equatable: ^2.0.7
+  firebase_auth: ^6.0.1
+  cloud_firestore: ^6.0.0
 
 
 dev_dependencies:

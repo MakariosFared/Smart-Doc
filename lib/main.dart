@@ -1,7 +1,9 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:smart_doc/firebase_options.dart';
+import 'Features/auth/index.dart';
 import 'Features/auth/presentation/view/role_selection_page.dart';
 import 'Features/auth/presentation/view/login_page.dart';
 import 'Features/auth/presentation/view/signup_page.dart';
@@ -23,37 +25,45 @@ class SmartDoc extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Clinic Queue',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.blue),
-      supportedLocales: const [Locale('en'), Locale('ar')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthCubit>(
+          create: (context) =>
+              AuthCubit(authRepository: AuthDependencyInjection.authRepository),
+        ),
       ],
-      locale: const Locale('ar'), // مؤقتًا خليها عربي، هنخليها dynamic بعدين
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const RoleSelectionPage(),
-        '/login': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as String;
-          return LoginPage(role: args);
-        },
-        '/signup': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as String;
-          return SignupPage(role: args);
-        },
-        '/patient-home': (context) => const PatientHomeScreen(),
-        '/doctor-home': (context) => const DoctorHomeScreen(),
+      child: MaterialApp(
+        title: 'Clinic Queue',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(primarySwatch: Colors.blue),
+        supportedLocales: const [Locale('en'), Locale('ar')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        locale: const Locale('ar'), // مؤقتًا خليها عربي، هنخليها dynamic بعدين
+        initialRoute: '/',
+        routes: {
+          '/': (context) => const RoleSelectionPage(),
+          '/login': (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as String;
+            return LoginPage(role: args);
+          },
+          '/signup': (context) {
+            final args = ModalRoute.of(context)!.settings.arguments as String;
+            return SignupPage(role: args);
+          },
+          '/patient-home': (context) => const PatientHomeScreen(),
+          '/doctor-home': (context) => const DoctorHomeScreen(),
 
-        // Patient Feature Routes
-        '/patient/book-appointment': (context) => const BookAppointmentPage(),
-        '/patient/queue-status': (context) => const QueueStatusPage(),
-        '/patient/questionnaire': (context) => const QuestionnairePage(),
-        '/patient/profile': (context) => const ProfilePage(),
-      },
+          // Patient Feature Routes
+          '/patient/book-appointment': (context) => const BookAppointmentPage(),
+          '/patient/queue-status': (context) => const QueueStatusPage(),
+          '/patient/questionnaire': (context) => const QuestionnairePage(),
+          '/patient/profile': (context) => const ProfilePage(),
+        },
+      ),
     );
   }
 }

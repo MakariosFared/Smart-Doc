@@ -18,7 +18,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String _patientEmail = "ahmed.mohamed@email.com";
   String _patientPhone = "+966 50 123 4567";
   String _patientAge = "28";
-  String _patientGender = "ذكر";
+  final String _patientGender = "ذكر";
   String _patientAddress = "الرياض، المملكة العربية السعودية";
 
   // Controllers for editing

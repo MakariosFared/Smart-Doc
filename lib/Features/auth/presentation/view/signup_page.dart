@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../cubit/auth_cubit.dart';
+import '../cubit/auth_state.dart';
+import '../../data/models/app_user.dart';
 import 'widgets/common_app_bar.dart';
 import 'widgets/custom_text_field.dart';
 import 'widgets/password_field.dart';
@@ -21,7 +25,17 @@ class _SignupPageState extends State<SignupPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ensure the form key is properly initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_formKey.currentState == null) {
+        print('Warning: Form not properly initialized');
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -32,28 +46,41 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
-  void _handleSignup() async {
-    final formState = _formKey.currentState;
-    if (formState != null && formState.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  void _handleSignup() {
+    try {
+      final formState = _formKey.currentState;
+      if (formState != null && formState.validate()) {
+        final name = _nameController.text.trim();
+        final email = _emailController.text.trim();
+        final password = _passwordController.text;
+        final confirmPassword = _confirmPasswordController.text;
 
-      // TODO: Add signup logic here
-      await Future.delayed(const Duration(seconds: 1)); // Simulate API call
+        if (name.isNotEmpty &&
+            email.isNotEmpty &&
+            password.isNotEmpty &&
+            confirmPassword.isNotEmpty) {
+          final UserRole userRole = widget.role == 'patient'
+              ? UserRole.patient
+              : UserRole.doctor;
 
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        // Navigate to the appropriate home page
-        if (widget.role == 'patient') {
-          Navigator.pushReplacementNamed(context, '/patient-home');
+          context.read<AuthCubit>().signup(name, email, password, userRole);
         } else {
-          Navigator.pushReplacementNamed(context, '/doctor-home');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('يرجى ملء جميع الحقول المطلوبة'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
       }
+    } catch (e) {
+      print('Error in _handleSignup: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('حدث خطأ أثناء معالجة الطلب'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -65,64 +92,88 @@ class _SignupPageState extends State<SignupPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CommonAppBar(
-        title: "إنشاء حساب - $_getRoleTitle",
+        title: "إنشاء حساب - ${_getRoleTitle()}",
         backgroundColor: Colors.blue,
       ),
-      body: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: FormSection(
-            title: "إنشاء حساب جديد",
-            children: [
-              CustomTextField(
-                controller: _nameController,
-                labelText: "الاسم الكامل",
-                prefixIcon: Icons.person,
-                textDirection: TextDirection.rtl,
-                validator: ValidationUtils.validateName,
+      body: BlocConsumer<AuthCubit, AuthState>(
+        listener: (context, state) {
+          if (state is AuthSuccess) {
+            // Navigate based on user role from Firebase
+            if (state.user.isPatient) {
+              Navigator.pushReplacementNamed(context, '/patient-home');
+            } else if (state.user.isDoctor) {
+              Navigator.pushReplacementNamed(context, '/doctor-home');
+            }
+          } else if (state is AuthFailure) {
+            // Show error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 3),
               ),
-              const FormFieldSpacer(),
-              CustomTextField(
-                controller: _emailController,
-                labelText: "البريد الإلكتروني أو رقم الهاتف",
-                prefixIcon: Icons.email,
-                keyboardType: TextInputType.emailAddress,
-                validator: ValidationUtils.validateEmailOrPhone,
+            );
+          }
+        },
+        builder: (context, state) {
+          return SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: FormSection(
+                title: "إنشاء حساب جديد",
+                children: [
+                  CustomTextField(
+                    controller: _nameController,
+                    labelText: "الاسم الكامل",
+                    prefixIcon: Icons.person,
+                    textDirection: TextDirection.rtl,
+                    validator: ValidationUtils.validateName,
+                  ),
+                  const FormFieldSpacer(),
+                  CustomTextField(
+                    controller: _emailController,
+                    labelText: "البريد الإلكتروني",
+                    prefixIcon: Icons.email,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: ValidationUtils.validateEmailOrPhone,
+                  ),
+                  const FormFieldSpacer(),
+                  PasswordField(
+                    controller: _passwordController,
+                    labelText: "كلمة المرور",
+                  ),
+                  const FormFieldSpacer(),
+                  PasswordField(
+                    controller: _confirmPasswordController,
+                    labelText: "تأكيد كلمة المرور",
+                    validator: (value) =>
+                        ValidationUtils.validateConfirmPassword(
+                          value,
+                          _passwordController.text,
+                        ),
+                  ),
+                  const FormFieldSpacer(height: 30),
+                  CustomButton(
+                    text: "إنشاء الحساب",
+                    onPressed: state is AuthLoading ? null : _handleSignup,
+                    isLoading: state is AuthLoading,
+                    type: ButtonType.success,
+                  ),
+                  const FormFieldSpacer(),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      "لديك حساب بالفعل؟ تسجيل الدخول",
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
               ),
-              const FormFieldSpacer(),
-              PasswordField(
-                controller: _passwordController,
-                labelText: "كلمة المرور",
-              ),
-              const FormFieldSpacer(),
-              PasswordField(
-                controller: _confirmPasswordController,
-                labelText: "تأكيد كلمة المرور",
-                validator: (value) => ValidationUtils.validateConfirmPassword(
-                  value,
-                  _passwordController.text,
-                ),
-              ),
-              const FormFieldSpacer(height: 30),
-              CustomButton(
-                text: "إنشاء الحساب",
-                onPressed: _handleSignup,
-                isLoading: _isLoading,
-                type: ButtonType.success,
-              ),
-              const FormFieldSpacer(),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  "لديك حساب بالفعل؟ تسجيل الدخول",
-                  style: TextStyle(fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -1,17 +1,22 @@
-import '../../data/models/user.dart';
+import '../../data/models/app_user.dart';
 
 abstract class AuthRepository {
   /// Authenticates a user with email and password
   ///
-  /// Returns a [User] object if authentication is successful
+  /// Returns an [AppUser] object if authentication is successful
   /// Throws an [AuthException] if authentication fails
-  Future<User> login(String email, String password);
+  Future<AppUser> login(String email, String password);
 
-  /// Registers a new user with email, password, and role
+  /// Registers a new user with name, email, password, and role
   ///
-  /// Returns a [User] object if registration is successful
+  /// Returns an [AppUser] object if registration is successful
   /// Throws an [AuthException] if registration fails
-  Future<User> signup(String email, String password, String role);
+  Future<AppUser> signup(
+    String name,
+    String email,
+    String password,
+    UserRole role,
+  );
 
   /// Logs out the current user
   ///
@@ -20,8 +25,8 @@ abstract class AuthRepository {
 
   /// Gets the current authenticated user
   ///
-  /// Returns the current [User] if authenticated, null otherwise
-  Future<User?> getCurrentUser();
+  /// Returns the current [AppUser] if authenticated, null otherwise
+  Future<AppUser?> getCurrentUser();
 
   /// Checks if a user is currently authenticated
   ///

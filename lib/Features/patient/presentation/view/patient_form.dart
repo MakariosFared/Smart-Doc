@@ -57,8 +57,9 @@ class _PatientFormState extends State<PatientForm> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                if (_formKey.currentState!.validate()) {
-                  _formKey.currentState!.save();
+                final formState = _formKey.currentState;
+                if (formState != null && formState.validate()) {
+                  formState.save();
                   // هنا هتخزن البيانات في Firestore
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("تم حفظ البيانات")),

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../auth/presentation/view/widgets/home_page_template.dart';
-import '../../../auth/presentation/view/widgets/custom_button.dart';
-import '../../../auth/presentation/view/widgets/role_selection_card.dart';
 
 class PatientHomeScreen extends StatelessWidget {
   const PatientHomeScreen({super.key});
@@ -15,7 +13,7 @@ class PatientHomeScreen extends StatelessWidget {
       themeColor: Colors.blue,
       additionalWidgets: [
         _PatientWelcomeSection(),
-        SizedBox(height: 30),
+        SizedBox(height: 20), // Reduced from 30
         _PatientNavigationGrid(),
       ],
     );
@@ -28,7 +26,7 @@ class _PatientWelcomeSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16), // Reduced from 20
       decoration: BoxDecoration(
         color: Colors.blue.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
@@ -36,29 +34,36 @@ class _PatientWelcomeSection extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.account_circle, size: 60, color: Colors.blue),
-          const SizedBox(height: 16),
+          const Icon(
+            Icons.account_circle,
+            size: 50,
+            color: Colors.blue,
+          ), // Reduced from 60
+          const SizedBox(height: 12), // Reduced from 16
           const Text(
             "أهلاً وسهلاً بك",
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 20, // Reduced from 24
               fontWeight: FontWeight.bold,
               color: Colors.blue,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6), // Reduced from 8
           const Text(
             "أحمد محمد",
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18, // Reduced from 20
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2), // Reduced from 4
           const Text(
             "مريض",
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+            ), // Reduced from 16
           ),
         ],
       ),
@@ -85,7 +90,7 @@ class _PatientNavigationGrid extends StatelessWidget {
                     Navigator.pushNamed(context, '/patient/book-appointment'),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12), // Reduced from 16
             Expanded(
               child: _NavigationCard(
                 title: "حالة الطابور",
@@ -98,7 +103,7 @@ class _PatientNavigationGrid extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12), // Reduced from 16
         Row(
           children: [
             Expanded(
@@ -111,7 +116,7 @@ class _PatientNavigationGrid extends StatelessWidget {
                     Navigator.pushNamed(context, '/patient/questionnaire'),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12), // Reduced from 16
             Expanded(
               child: _NavigationCard(
                 title: "الملف الشخصي",
@@ -151,25 +156,28 @@ class _NavigationCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16), // Reduced from 20
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 50, color: color),
-              const SizedBox(height: 16),
+              Icon(icon, size: 40, color: color), // Reduced from 50
+              const SizedBox(height: 12), // Reduced from 16
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 16, // Reduced from 18
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6), // Reduced from 8
               Text(
                 subtitle,
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ), // Reduced from 14
                 textAlign: TextAlign.center,
               ),
             ],

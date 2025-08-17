@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../cubit/auth_cubit.dart';
+import '../cubit/auth_state.dart';
 import 'widgets/common_app_bar.dart';
 import 'widgets/custom_text_field.dart';
 import 'widgets/password_field.dart';
@@ -19,7 +22,17 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ensure the form key is properly initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_formKey.currentState == null) {
+        print('Warning: Form not properly initialized');
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -28,28 +41,32 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _handleLogin() async {
-    final formState = _formKey.currentState;
-    if (formState != null && formState.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  void _handleLogin() {
+    try {
+      final formState = _formKey.currentState;
+      if (formState != null && formState.validate()) {
+        final email = _emailController.text.trim();
+        final password = _passwordController.text;
 
-      // TODO: Add authentication logic here
-      await Future.delayed(const Duration(seconds: 1)); // Simulate API call
-
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        // Navigate to the appropriate home page
-        if (widget.role == 'patient') {
-          Navigator.pushReplacementNamed(context, '/patient-home');
+        if (email.isNotEmpty && password.isNotEmpty) {
+          context.read<AuthCubit>().login(email, password);
         } else {
-          Navigator.pushReplacementNamed(context, '/doctor-home');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('يرجى ملء جميع الحقول المطلوبة'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
       }
+    } catch (e) {
+      print('Error in _handleLogin: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('حدث خطأ أثناء معالجة الطلب'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -61,42 +78,72 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CommonAppBar(
-        title: "تسجيل الدخول - $_getRoleTitle",
+        title: "تسجيل الدخول - ${_getRoleTitle()}",
         backgroundColor: Colors.blue,
       ),
-      body: FormSection(
-        title: "تسجيل الدخول",
-        children: [
-          CustomTextField(
-            controller: _emailController,
-            labelText: "البريد الإلكتروني أو رقم الهاتف",
-            prefixIcon: Icons.email,
-            keyboardType: TextInputType.emailAddress,
-            validator: ValidationUtils.validateEmailOrPhone,
-          ),
-          const FormFieldSpacer(),
-          PasswordField(
-            controller: _passwordController,
-            labelText: "كلمة المرور",
-          ),
-          const FormFieldSpacer(height: 30),
-          CustomButton(
-            text: "تسجيل الدخول",
-            onPressed: _handleLogin,
-            isLoading: _isLoading,
-            type: ButtonType.primary,
-          ),
-          const FormFieldSpacer(),
-          TextButton(
-            onPressed: () {
-              Navigator.pushNamed(context, '/signup', arguments: widget.role);
-            },
-            child: const Text(
-              "ليس لديك حساب؟ إنشاء حساب جديد",
-              style: TextStyle(fontSize: 16),
+      body: BlocConsumer<AuthCubit, AuthState>(
+        listener: (context, state) {
+          if (state is AuthSuccess) {
+            // Navigate based on user role from Firebase
+            if (state.user.isPatient) {
+              Navigator.pushReplacementNamed(context, '/patient-home');
+            } else if (state.user.isDoctor) {
+              Navigator.pushReplacementNamed(context, '/doctor-home');
+            }
+          } else if (state is AuthFailure) {
+            // Show error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          return Form(
+            key: _formKey,
+            child: FormSection(
+              title: "تسجيل الدخول",
+              children: [
+                CustomTextField(
+                  controller: _emailController,
+                  labelText: "البريد الإلكتروني",
+                  prefixIcon: Icons.email,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: ValidationUtils.validateEmailOrPhone,
+                ),
+                const FormFieldSpacer(),
+                PasswordField(
+                  controller: _passwordController,
+                  labelText: "كلمة المرور",
+                ),
+                const FormFieldSpacer(height: 30),
+                CustomButton(
+                  text: "تسجيل الدخول",
+                  onPressed: state is AuthLoading ? null : _handleLogin,
+                  isLoading: state is AuthLoading,
+                  type: ButtonType.primary,
+                ),
+                const FormFieldSpacer(),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/signup',
+                      arguments: widget.role,
+                    );
+                  },
+                  child: const Text(
+                    "ليس لديك حساب؟ إنشاء حساب جديد",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
