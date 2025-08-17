@@ -1,8 +1,16 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'Features/auth/presentation/view/auth_view.dart';
+import 'package:smart_doc/firebase_options.dart';
+import 'Features/auth/presentation/view/role_selection_page.dart';
+import 'Features/auth/presentation/view/login_page.dart';
+import 'Features/auth/presentation/view/signup_page.dart';
+import 'Features/patient/presentation/view/home_patient_page.dart';
+import 'Features/doctor/presentation/view/doctor_home_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const SmartDoc());
 }
 
@@ -22,7 +30,20 @@ class SmartDoc extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       locale: const Locale('ar'), // مؤقتًا خليها عربي، هنخليها dynamic بعدين
-      home: const AuthScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const RoleSelectionPage(),
+        '/login': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as String;
+          return LoginPage(role: args);
+        },
+        '/signup': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as String;
+          return SignupPage(role: args);
+        },
+        '/patient-home': (context) => const PatientHomeScreen(),
+        '/doctor-home': (context) => const DoctorHomeScreen(),
+      },
     );
   }
 }
