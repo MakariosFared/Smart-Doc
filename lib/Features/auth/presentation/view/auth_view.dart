@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smart_doc/Features/doctor/presentation/view/doctor_home.dart';
-import 'package:smart_doc/Features/patien/presentation/view/patient_home.dart';
+import 'package:smart_doc/Features/patient/presentation/view/patient_home.dart';
 
 class AuthScreen extends StatelessWidget {
   const AuthScreen({super.key});
