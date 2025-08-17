@@ -36,14 +36,12 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: backgroundColor ?? Theme.of(context).primaryColor,
       foregroundColor: foregroundColor ?? Colors.white,
       automaticallyImplyLeading: automaticallyImplyLeading,
-      leading: leading != null
-          ? leading
-          : automaticallyImplyLeading
+      leading: leading ?? (automaticallyImplyLeading
           ? IconButton(
               icon: const Icon(Icons.arrow_back),
               onPressed: onLeadingPressed ?? () => Navigator.of(context).pop(),
             )
-          : null,
+          : null),
       actions: actions,
       elevation: 2,
     );

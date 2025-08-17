@@ -33,7 +33,8 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   void _handleSignup() async {
-    if (_formKey.currentState!.validate()) {
+    final formState = _formKey.currentState;
+    if (formState != null && formState.validate()) {
       setState(() {
         _isLoading = true;
       });
@@ -63,7 +64,10 @@ class _SignupPageState extends State<SignupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CommonAppBar(title: "إنشاء حساب - $_getRoleTitle"),
+      appBar: CommonAppBar(
+        title: "إنشاء حساب - $_getRoleTitle",
+        backgroundColor: Colors.blue,
+      ),
       body: SingleChildScrollView(
         child: Form(
           key: _formKey,

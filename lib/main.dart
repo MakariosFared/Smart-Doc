@@ -6,6 +6,10 @@ import 'Features/auth/presentation/view/role_selection_page.dart';
 import 'Features/auth/presentation/view/login_page.dart';
 import 'Features/auth/presentation/view/signup_page.dart';
 import 'Features/patient/presentation/view/home_patient_page.dart';
+import 'Features/patient/presentation/view/book_appointment_page.dart';
+import 'Features/patient/presentation/view/queue_status_page.dart';
+import 'Features/patient/presentation/view/questionnaire_page.dart';
+import 'Features/patient/presentation/view/profile_page.dart';
 import 'Features/doctor/presentation/view/doctor_home_screen.dart';
 
 Future<void> main() async {
@@ -43,6 +47,12 @@ class SmartDoc extends StatelessWidget {
         },
         '/patient-home': (context) => const PatientHomeScreen(),
         '/doctor-home': (context) => const DoctorHomeScreen(),
+
+        // Patient Feature Routes
+        '/patient/book-appointment': (context) => const BookAppointmentPage(),
+        '/patient/queue-status': (context) => const QueueStatusPage(),
+        '/patient/questionnaire': (context) => const QuestionnairePage(),
+        '/patient/profile': (context) => const ProfilePage(),
       },
     );
   }

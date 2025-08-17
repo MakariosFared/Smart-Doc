@@ -11,6 +11,7 @@ class RoleSelectionPage extends StatelessWidget {
       appBar: const CommonAppBar(
         title: "اختر نوع الحساب",
         automaticallyImplyLeading: false,
+        backgroundColor: Colors.blue,
       ),
       body: Center(
         child: Padding(

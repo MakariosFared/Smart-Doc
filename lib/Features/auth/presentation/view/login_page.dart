@@ -29,7 +29,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
+    final formState = _formKey.currentState;
+    if (formState != null && formState.validate()) {
       setState(() {
         _isLoading = true;
       });
@@ -59,7 +60,10 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CommonAppBar(title: "تسجيل الدخول - $_getRoleTitle"),
+      appBar: CommonAppBar(
+        title: "تسجيل الدخول - $_getRoleTitle",
+        backgroundColor: Colors.blue,
+      ),
       body: FormSection(
         title: "تسجيل الدخول",
         children: [
