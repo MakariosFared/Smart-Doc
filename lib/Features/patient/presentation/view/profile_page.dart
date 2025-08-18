@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../auth/presentation/view/widgets/common_app_bar.dart';
 import '../../../auth/presentation/view/widgets/custom_button.dart';
+import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/presentation/cubit/auth_state.dart';
+import '../../../auth/data/models/app_user.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -12,40 +16,36 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   bool _isEditing = false;
   bool _isSaving = false;
-
-  // Dummy patient data
-  String _patientName = "أحمد محمد";
-  String _patientEmail = "ahmed.mohamed@email.com";
-  String _patientPhone = "+966 50 123 4567";
-  String _patientAge = "28";
-  final String _patientGender = "ذكر";
-  String _patientAddress = "الرياض، المملكة العربية السعودية";
+  AppUser? _currentUser;
 
   // Controllers for editing
   late TextEditingController _nameController;
   late TextEditingController _emailController;
-  late TextEditingController _phoneController;
-  late TextEditingController _ageController;
-  late TextEditingController _addressController;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: _patientName);
-    _emailController = TextEditingController(text: _patientEmail);
-    _phoneController = TextEditingController(text: _patientPhone);
-    _ageController = TextEditingController(text: _patientAge);
-    _addressController = TextEditingController(text: _patientAddress);
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
+    _loadUserData();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
-    _ageController.dispose();
-    _addressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    final user = await context.read<AuthCubit>().getCurrentUser();
+    if (user != null && mounted) {
+      setState(() {
+        _currentUser = user;
+        _nameController.text = user.name;
+        _emailController.text = user.emailOrPhone;
+      });
+    }
   }
 
   @override
@@ -55,22 +55,42 @@ class _ProfilePageState extends State<ProfilePage> {
         title: "الملف الشخصي",
         backgroundColor: Colors.teal,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            _buildProfileHeader(),
-            const SizedBox(height: 30),
-            _buildProfileInfo(),
-            const SizedBox(height: 30),
-            _buildActionButtons(),
-          ],
-        ),
+      body: BlocBuilder<AuthCubit, AuthState>(
+        builder: (context, state) {
+          if (state is AuthLoading) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (state is AuthSuccess && _currentUser != null) {
+            return _buildProfileContent();
+          } else if (state is AuthUnauthenticated) {
+            return _buildNotAuthenticated();
+          } else {
+            return _buildLoadingState();
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildProfileContent() {
+    if (_currentUser == null) return _buildLoadingState();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        children: [
+          _buildProfileHeader(),
+          const SizedBox(height: 30),
+          _buildProfileInfo(),
+          const SizedBox(height: 30),
+          _buildActionButtons(),
+        ],
       ),
     );
   }
 
   Widget _buildProfileHeader() {
+    if (_currentUser == null) return const SizedBox.shrink();
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -84,7 +104,7 @@ class _ProfilePageState extends State<ProfilePage> {
             radius: 50,
             backgroundColor: Colors.teal,
             child: Text(
-              _patientName.split(' ').map((e) => e[0]).join(''),
+              _currentUser!.name.split(' ').map((e) => e[0]).join(''),
               style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
@@ -94,7 +114,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 16),
           Text(
-            _patientName,
+            _currentUser!.name,
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -102,9 +122,9 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            "مريض",
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+          Text(
+            _currentUser!.roleDisplayName,
+            style: const TextStyle(fontSize: 16, color: Colors.grey),
           ),
         ],
       ),
@@ -112,6 +132,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileInfo() {
+    if (_currentUser == null) return const SizedBox.shrink();
+
     return Card(
       elevation: 4,
       child: Padding(
@@ -137,43 +159,58 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildInfoField(
               icon: Icons.person,
               label: "الاسم الكامل",
-              value: _isEditing ? null : _patientName,
+              value: _isEditing ? null : _currentUser!.name,
               controller: _isEditing ? _nameController : null,
             ),
             const SizedBox(height: 20),
             _buildInfoField(
               icon: Icons.email,
               label: "البريد الإلكتروني",
-              value: _isEditing ? null : _patientEmail,
+              value: _isEditing ? null : _currentUser!.emailOrPhone,
               controller: _isEditing ? _emailController : null,
             ),
             const SizedBox(height: 20),
             _buildInfoField(
-              icon: Icons.phone,
-              label: "رقم الهاتف",
-              value: _isEditing ? null : _patientPhone,
-              controller: _isEditing ? _phoneController : null,
-            ),
-            const SizedBox(height: 20),
-            _buildInfoField(
-              icon: Icons.cake,
-              label: "العمر",
-              value: _isEditing ? null : "$_patientAge سنة",
-              controller: _isEditing ? _ageController : null,
-            ),
-            const SizedBox(height: 20),
-            _buildInfoField(
-              icon: Icons.person_outline,
-              label: "الجنس",
-              value: _patientGender,
+              icon: Icons.vpn_key,
+              label: "معرف المستخدم",
+              value: _currentUser!.id,
               isReadOnly: true,
             ),
             const SizedBox(height: 20),
             _buildInfoField(
-              icon: Icons.location_on,
-              label: "العنوان",
-              value: _isEditing ? null : _patientAddress,
-              controller: _isEditing ? _addressController : null,
+              icon: Icons.verified_user,
+              label: "نوع الحساب",
+              value: _currentUser!.roleDisplayName,
+              isReadOnly: true,
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    color: Colors.orange,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      "سيتم إضافة المزيد من المعلومات (العمر، الجنس، العنوان) في التحديثات القادمة",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.orange,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -233,6 +270,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildActionButtons() {
+    if (_currentUser == null) return const SizedBox.shrink();
+
     return Row(
       children: [
         Expanded(
@@ -260,14 +299,13 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _startEditing() {
+    if (_currentUser == null) return;
+
     setState(() {
       _isEditing = true;
       // Reset controllers to current values
-      _nameController.text = _patientName;
-      _emailController.text = _patientEmail;
-      _phoneController.text = _patientPhone;
-      _ageController.text = _patientAge;
-      _addressController.text = _patientAddress;
+      _nameController.text = _currentUser!.name;
+      _emailController.text = _currentUser!.emailOrPhone;
     });
   }
 
@@ -278,33 +316,93 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _saveChanges() async {
+    if (_currentUser == null) return;
+
     setState(() {
       _isSaving = true;
     });
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      // Here you would typically call an API to update the user profile
+      // For now, we'll just simulate the update
+      await Future.delayed(const Duration(seconds: 2));
 
-    if (mounted) {
-      setState(() {
-        _isSaving = false;
-        _isEditing = false;
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _isEditing = false;
 
-        // Update the displayed values
-        _patientName = _nameController.text;
-        _patientEmail = _emailController.text;
-        _patientPhone = _phoneController.text;
-        _patientAge = _ageController.text;
-        _patientAddress = _addressController.text;
-      });
+          // Update the current user with new values
+          _currentUser = _currentUser!.copyWith(
+            name: _nameController.text,
+            emailOrPhone: _emailController.text,
+          );
+        });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("تم حفظ التغييرات بنجاح"),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("تم حفظ التغييرات بنجاح"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("فشل في حفظ التغييرات: $e"),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
+  }
+
+  Widget _buildNotAuthenticated() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.person_off, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Text(
+            "غير مسجل الدخول",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "يرجى تسجيل الدخول لعرض الملف الشخصي",
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          CustomButton(
+            text: "تسجيل الدخول",
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/');
+            },
+            type: ButtonType.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text("جاري تحميل البيانات...", style: TextStyle(fontSize: 18)),
+        ],
+      ),
+    );
   }
 }
