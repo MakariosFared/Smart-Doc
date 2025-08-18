@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../data/models/survey.dart';
+import '../../domain/entities/survey.dart';
 
 abstract class SurveyState extends Equatable {
   const SurveyState();

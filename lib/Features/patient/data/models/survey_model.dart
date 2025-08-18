@@ -1,27 +1,21 @@
-import 'package:equatable/equatable.dart';
+import '../../domain/entities/survey.dart';
 
-class Survey extends Equatable {
-  final String id;
-  final String patientId;
-  final String doctorId;
-  final DateTime timestamp;
-  final SurveyData data;
-
-  const Survey({
-    required this.id,
-    required this.patientId,
-    required this.doctorId,
-    required this.timestamp,
-    required this.data,
+class SurveyModel extends Survey {
+  const SurveyModel({
+    required super.id,
+    required super.patientId,
+    required super.doctorId,
+    required super.timestamp,
+    required super.data,
   });
 
-  factory Survey.fromJson(Map<String, dynamic> json) {
-    return Survey(
+  factory SurveyModel.fromJson(Map<String, dynamic> json) {
+    return SurveyModel(
       id: json['id'] as String,
       patientId: json['patientId'] as String,
       doctorId: json['doctorId'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),
-      data: SurveyData.fromJson(json['data'] as Map<String, dynamic>),
+      data: SurveyDataModel.fromJson(json['data'] as Map<String, dynamic>),
     );
   }
 
@@ -31,18 +25,18 @@ class Survey extends Equatable {
       'patientId': patientId,
       'doctorId': doctorId,
       'timestamp': timestamp.toIso8601String(),
-      'data': data.toJson(),
+      'data': (data as SurveyDataModel).toJson(),
     };
   }
 
-  Survey copyWith({
+  SurveyModel copyWith({
     String? id,
     String? patientId,
     String? doctorId,
     DateTime? timestamp,
     SurveyData? data,
   }) {
-    return Survey(
+    return SurveyModel(
       id: id ?? this.id,
       patientId: patientId ?? this.patientId,
       doctorId: doctorId ?? this.doctorId,
@@ -50,34 +44,22 @@ class Survey extends Equatable {
       data: data ?? this.data,
     );
   }
-
-  @override
-  List<Object?> get props => [id, patientId, doctorId, timestamp, data];
 }
 
-class SurveyData extends Equatable {
-  final bool hasChronicDiseases;
-  final String? chronicDiseasesDetails;
-  final bool isTakingMedications;
-  final String? medicationsDetails;
-  final bool hasAllergies;
-  final String? allergiesDetails;
-  final String symptoms;
-  final String symptomsDuration;
-
-  const SurveyData({
-    required this.hasChronicDiseases,
-    this.chronicDiseasesDetails,
-    required this.isTakingMedications,
-    this.medicationsDetails,
-    required this.hasAllergies,
-    this.allergiesDetails,
-    required this.symptoms,
-    required this.symptomsDuration,
+class SurveyDataModel extends SurveyData {
+  const SurveyDataModel({
+    required super.hasChronicDiseases,
+    super.chronicDiseasesDetails,
+    required super.isTakingMedications,
+    super.medicationsDetails,
+    required super.hasAllergies,
+    super.allergiesDetails,
+    required super.symptoms,
+    required super.symptomsDuration,
   });
 
-  factory SurveyData.fromJson(Map<String, dynamic> json) {
-    return SurveyData(
+  factory SurveyDataModel.fromJson(Map<String, dynamic> json) {
+    return SurveyDataModel(
       hasChronicDiseases: json['hasChronicDiseases'] as bool,
       chronicDiseasesDetails: json['chronicDiseasesDetails'] as String?,
       isTakingMedications: json['isTakingMedications'] as bool,
@@ -102,7 +84,7 @@ class SurveyData extends Equatable {
     };
   }
 
-  SurveyData copyWith({
+  SurveyDataModel copyWith({
     bool? hasChronicDiseases,
     String? chronicDiseasesDetails,
     bool? isTakingMedications,
@@ -112,7 +94,7 @@ class SurveyData extends Equatable {
     String? symptoms,
     String? symptomsDuration,
   }) {
-    return SurveyData(
+    return SurveyDataModel(
       hasChronicDiseases: hasChronicDiseases ?? this.hasChronicDiseases,
       chronicDiseasesDetails:
           chronicDiseasesDetails ?? this.chronicDiseasesDetails,
@@ -124,16 +106,4 @@ class SurveyData extends Equatable {
       symptomsDuration: symptomsDuration ?? this.symptomsDuration,
     );
   }
-
-  @override
-  List<Object?> get props => [
-    hasChronicDiseases,
-    chronicDiseasesDetails,
-    isTakingMedications,
-    medicationsDetails,
-    hasAllergies,
-    allergiesDetails,
-    symptoms,
-    symptomsDuration,
-  ];
 }

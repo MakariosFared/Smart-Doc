@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/repositories/survey_repository.dart';
-import '../../data/models/survey.dart';
+import '../../domain/entities/survey.dart';
 import 'survey_state.dart';
 
 class SurveyCubit extends Cubit<SurveyState> {

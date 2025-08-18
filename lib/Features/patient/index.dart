@@ -1,8 +1,11 @@
-// Models
+// Domain Entities
+export 'domain/entities/survey.dart';
+
+// Data Models
 export 'data/models/doctor.dart';
 export 'data/models/appointment.dart';
 export 'data/models/questionnaire.dart';
-export 'data/models/survey.dart';
+export 'data/models/survey_model.dart';
 
 // Repositories
 export 'domain/repositories/booking_repository.dart';
@@ -19,9 +22,6 @@ export 'presentation/cubit/questionnaire_cubit.dart';
 export 'presentation/cubit/questionnaire_state.dart';
 export 'presentation/cubit/survey_cubit.dart';
 export 'presentation/cubit/survey_state.dart';
-
-// Dependency Injection
-export 'di/patient_dependency_injection.dart';
 
 // Views
 export 'presentation/view/questionnaire_screen.dart';

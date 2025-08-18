@@ -6,7 +6,7 @@ import '../cubit/survey_cubit.dart';
 import '../cubit/survey_state.dart';
 import '../cubit/booking_cubit.dart';
 import '../cubit/booking_state.dart';
-import '../../data/models/survey.dart';
+import '../../domain/entities/survey.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 
 class SurveyScreen extends StatefulWidget {

@@ -1,4 +1,4 @@
-import '../../data/models/survey.dart';
+import '../entities/survey.dart';
 
 abstract class SurveyRepository {
   /// Submit a survey response for a patient

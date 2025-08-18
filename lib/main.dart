@@ -10,7 +10,6 @@ import 'Features/auth/presentation/view/signup_page.dart';
 import 'Features/patient/presentation/view/home_patient_page.dart';
 import 'Features/patient/presentation/view/book_appointment_page.dart';
 import 'Features/patient/presentation/view/queue_status_page.dart';
-
 import 'Features/patient/presentation/view/questionnaire_screen.dart';
 import 'Features/patient/presentation/view/survey_screen.dart';
 import 'Features/patient/presentation/view/profile_page.dart';
@@ -18,7 +17,7 @@ import 'Features/doctor/presentation/view/doctor_home_screen.dart';
 import 'Features/patient/presentation/cubit/booking_cubit.dart';
 import 'Features/patient/presentation/cubit/questionnaire_cubit.dart';
 import 'Features/patient/presentation/cubit/survey_cubit.dart';
-import 'Features/patient/di/patient_dependency_injection.dart';
+import 'core/di/dependency_injection.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,22 +34,22 @@ class SmartDoc extends StatelessWidget {
       providers: [
         BlocProvider<AuthCubit>(
           create: (context) =>
-              AuthCubit(authRepository: AuthDependencyInjection.authRepository),
+              AuthCubit(authRepository: DependencyInjection.authRepository),
         ),
         BlocProvider<BookingCubit>(
           create: (context) => BookingCubit(
-            bookingRepository: PatientDependencyInjection.bookingRepository,
+            bookingRepository: DependencyInjection.bookingRepository,
           ),
         ),
         BlocProvider<QuestionnaireCubit>(
           create: (context) => QuestionnaireCubit(
             questionnaireRepository:
-                PatientDependencyInjection.questionnaireRepository,
+                DependencyInjection.questionnaireRepository,
           ),
         ),
         BlocProvider<SurveyCubit>(
           create: (context) => SurveyCubit(
-            surveyRepository: PatientDependencyInjection.surveyRepository,
+            surveyRepository: DependencyInjection.surveyRepository,
           ),
         ),
       ],
@@ -82,7 +81,6 @@ class SmartDoc extends StatelessWidget {
           // Patient Feature Routes
           '/patient/book-appointment': (context) => const BookAppointmentPage(),
           '/patient/queue-status': (context) => const QueueStatusPage(),
-
           '/patient/questionnaire-screen': (context) =>
               const QuestionnaireScreen(),
           '/patient/survey': (context) => const SurveyScreen(),

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/repositories/survey_repository.dart';
-import '../models/survey.dart';
+import '../../domain/entities/survey.dart';
+import '../models/survey_model.dart';
 
 class FirebaseSurveyRepositoryImpl implements SurveyRepository {
   final FirebaseFirestore _firestore;
@@ -23,12 +24,21 @@ class FirebaseSurveyRepositoryImpl implements SurveyRepository {
           .doc()
           .id;
 
-      final survey = Survey(
+      final surveyModel = SurveyModel(
         id: surveyId,
         patientId: patientId,
         doctorId: doctorId,
         timestamp: DateTime.now(),
-        data: surveyData,
+        data: SurveyDataModel(
+          hasChronicDiseases: surveyData.hasChronicDiseases,
+          chronicDiseasesDetails: surveyData.chronicDiseasesDetails,
+          isTakingMedications: surveyData.isTakingMedications,
+          medicationsDetails: surveyData.medicationsDetails,
+          hasAllergies: surveyData.hasAllergies,
+          allergiesDetails: surveyData.allergiesDetails,
+          symptoms: surveyData.symptoms,
+          symptomsDuration: surveyData.symptomsDuration,
+        ),
       );
 
       // Save to Firestore under the specified collection structure
@@ -37,9 +47,9 @@ class FirebaseSurveyRepositoryImpl implements SurveyRepository {
           .doc(doctorId)
           .collection(patientId)
           .doc(surveyId)
-          .set(survey.toJson());
+          .set(surveyModel.toJson());
 
-      return survey;
+      return surveyModel;
     } on FirebaseException catch (e) {
       throw SurveyException(
         'فشل في حفظ الاستبيان: ${_getFirebaseErrorMessage(e.code)}',
@@ -69,7 +79,7 @@ class FirebaseSurveyRepositoryImpl implements SurveyRepository {
       }
 
       final doc = querySnapshot.docs.first;
-      return Survey.fromJson({'id': doc.id, ...doc.data()});
+      return SurveyModel.fromJson({'id': doc.id, ...doc.data()});
     } on FirebaseException catch (e) {
       throw SurveyException(
         'فشل في جلب الاستبيان: ${_getFirebaseErrorMessage(e.code)}',
@@ -90,7 +100,7 @@ class FirebaseSurveyRepositoryImpl implements SurveyRepository {
           .get();
 
       return querySnapshot.docs
-          .map((doc) => Survey.fromJson({'id': doc.id, ...doc.data()}))
+          .map((doc) => SurveyModel.fromJson({'id': doc.id, ...doc.data()}))
           .toList();
     } on FirebaseException catch (e) {
       throw SurveyException(
@@ -113,7 +123,7 @@ class FirebaseSurveyRepositoryImpl implements SurveyRepository {
           .get();
 
       return querySnapshot.docs
-          .map((doc) => Survey.fromJson({'id': doc.id, ...doc.data()}))
+          .map((doc) => SurveyModel.fromJson({'id': doc.id, ...doc.data()}))
           .toList();
     } on FirebaseException catch (e) {
       throw SurveyException(
