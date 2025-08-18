@@ -1,9 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../auth/presentation/view/widgets/common_app_bar.dart';
 import '../../../auth/presentation/view/widgets/custom_button.dart';
+import '../cubit/booking_cubit.dart';
+import '../cubit/booking_state.dart';
+import '../../data/models/doctor.dart';
+import 'package:intl/intl.dart';
 
-class BookAppointmentPage extends StatelessWidget {
+class BookAppointmentPage extends StatefulWidget {
   const BookAppointmentPage({super.key});
+
+  @override
+  State<BookAppointmentPage> createState() => _BookAppointmentPageState();
+}
+
+class _BookAppointmentPageState extends State<BookAppointmentPage> {
+  DateTime _selectedDate = DateTime.now();
+  Doctor? _selectedDoctor;
+  String? _selectedTimeSlot;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load available doctors when page initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<BookingCubit>().loadAvailableDoctors();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,50 +35,126 @@ class BookAppointmentPage extends StatelessWidget {
         title: "حجز موعد",
         backgroundColor: Colors.green,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "اختر الدكتور",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
+      body: BlocConsumer<BookingCubit, BookingState>(
+        listener: (context, state) {
+          if (state is AppointmentCreated) {
+            // Navigate to questionnaire after successful appointment creation
+            Navigator.pushReplacementNamed(
+              context,
+              '/patient/questionnaire-screen',
+              arguments: {
+                'doctorId': _selectedDoctor!.id,
+                'timeSlot': _selectedTimeSlot!,
+                'date': _selectedDate,
+                'appointmentId': state.appointment.id,
+              },
+            );
+          } else if (state is BookingFailure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 3),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "اضغط على زر الحجز لحجز موعد مع الدكتور المطلوب",
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _dummyDoctors.length,
-                itemBuilder: (context, index) {
-                  final doctor = _dummyDoctors[index];
-                  return _DoctorCard(doctor: doctor);
-                },
-              ),
-            ),
-          ],
-        ),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state is BookingLoading) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (state is DoctorsLoaded) {
+            return _buildDoctorsList(state.doctors);
+          } else if (state is DoctorSelected) {
+            return _buildTimeSlotSelection(state.doctor);
+          } else if (state is TimeSlotsLoading) {
+            return _buildTimeSlotSelection(_selectedDoctor!);
+          } else if (state is TimeSlotsLoaded) {
+            return _buildTimeSlotSelection(_selectedDoctor!);
+          } else if (state is TimeSlotSelected) {
+            return _buildConfirmationPage(
+              state.doctor,
+              state.timeSlot,
+              state.date,
+            );
+          } else if (state is AppointmentCreating) {
+            return _buildLoadingPage();
+          } else {
+            return _buildDoctorsList([]);
+          }
+        },
       ),
     );
   }
-}
 
-class _DoctorCard extends StatelessWidget {
-  final _DummyDoctor doctor;
+  Widget _buildDoctorsList(List<Doctor> doctors) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "اختر الدكتور",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "اضغط على الدكتور لحجز موعد",
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: ListView.builder(
+              itemCount: doctors.length,
+              itemBuilder: (context, index) {
+                final doctor = doctors[index];
+                return _DoctorCard(
+                  doctor: doctor,
+                  onTap: () => _selectDoctor(doctor),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  const _DoctorCard({required this.doctor});
+  Widget _buildTimeSlotSelection(Doctor doctor) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDoctorInfo(doctor),
+          const SizedBox(height: 24),
+          const Text(
+            "اختر التاريخ والوقت",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildDateSelector(),
+          const SizedBox(height: 24),
+          const Text(
+            "المواعيد المتاحة:",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 16),
+          Expanded(child: _buildTimeSlotsGrid(doctor)),
+        ],
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildDoctorInfo(Doctor doctor) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
       elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -99,29 +198,10 @@ class _DoctorCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Icon(Icons.access_time, size: 16, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(
-                        "متاح ${doctor.availability}",
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
                     ],
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 16),
-            CustomButton(
-              text: "حجز",
-              onPressed: () => _showBookingDialog(context, doctor),
-              type: ButtonType.success,
-              isFullWidth: false,
-              width: 80,
-              height: 40,
             ),
           ],
         ),
@@ -129,89 +209,348 @@ class _DoctorCard extends StatelessWidget {
     );
   }
 
-  void _showBookingDialog(BuildContext context, _DummyDoctor doctor) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("حجز موعد مع ${doctor.name}"),
-        content: const Text(
-          "سيتم إرسال طلب الحجز إلى الدكتور. ستصلك رسالة تأكيد قريباً.",
+  Widget _buildDateSelector() {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "التاريخ:",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    DateFormat('EEEE, d MMMM yyyy', 'ar').format(_selectedDate),
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _selectDate(context),
+                  icon: const Icon(Icons.calendar_today),
+                  color: Colors.green,
+                ),
+              ],
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("إلغاء"),
+      ),
+    );
+  }
+
+  Widget _buildTimeSlotsGrid(Doctor doctor) {
+    return FutureBuilder<List<String>>(
+      future: _getAvailableTimeSlots(doctor.id, _selectedDate),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('خطأ في تحميل المواعيد: ${snapshot.error}'),
+          );
+        }
+
+        final timeSlots = snapshot.data ?? [];
+        if (timeSlots.isEmpty) {
+          return const Center(
+            child: Text(
+              'لا توجد مواعيد متاحة في هذا التاريخ',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          );
+        }
+
+        return GridView.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 2.5,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
           ),
+          itemCount: timeSlots.length,
+          itemBuilder: (context, index) {
+            final timeSlot = timeSlots[index];
+            final isSelected = _selectedTimeSlot == timeSlot;
+
+            return InkWell(
+              onTap: () => _selectTimeSlot(timeSlot),
+              child: Card(
+                elevation: isSelected ? 4 : 2,
+                color: isSelected ? Colors.green.withOpacity(0.1) : null,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: isSelected
+                        ? Border.all(color: Colors.green, width: 2)
+                        : null,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      timeSlot,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? Colors.green : Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildConfirmationPage(Doctor doctor, String timeSlot, DateTime date) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDoctorInfo(doctor),
+          const SizedBox(height: 24),
+          Card(
+            elevation: 4,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "تفاصيل الموعد",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildDetailRow("الدكتور:", doctor.name),
+                  _buildDetailRow("التخصص:", doctor.specialization),
+                  _buildDetailRow(
+                    "التاريخ:",
+                    DateFormat('EEEE, d MMMM yyyy', 'ar').format(date),
+                  ),
+                  _buildDetailRow("الوقت:", timeSlot),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "ملاحظة: ستحتاج إلى إكمال استبيان طبي قبل تأكيد الموعد",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.orange,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Spacer(),
           CustomButton(
-            text: "تأكيد الحجز",
-            onPressed: () {
-              Navigator.pop(context);
-              _showSuccessSnackBar(context);
-            },
+            text: "متابعة إلى الاستبيان",
+            onPressed: () => _proceedToQuestionnaire(doctor, timeSlot, date),
             type: ButtonType.success,
-            isFullWidth: false,
-            width: 120,
-            height: 40,
+            icon: Icons.arrow_forward,
           ),
         ],
       ),
     );
   }
 
-  void _showSuccessSnackBar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("تم إرسال طلب الحجز بنجاح!"),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildLoadingPage() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text("جاري إنشاء الموعد...", style: TextStyle(fontSize: 18)),
+        ],
+      ),
+    );
+  }
+
+  void _selectDoctor(Doctor doctor) {
+    setState(() {
+      _selectedDoctor = doctor;
+      _selectedTimeSlot = null;
+    });
+    context.read<BookingCubit>().selectDoctor(doctor);
+  }
+
+  void _selectTimeSlot(String timeSlot) {
+    setState(() {
+      _selectedTimeSlot = timeSlot;
+    });
+    if (_selectedDoctor != null) {
+      context.read<BookingCubit>().selectTimeSlot(timeSlot, _selectedDate);
+    }
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 30)),
+      locale: const Locale('ar'),
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _selectedTimeSlot = null;
+      });
+
+      if (_selectedDoctor != null) {
+        context.read<BookingCubit>().loadAvailableTimeSlots(
+          _selectedDoctor!.id,
+          _selectedDate,
+        );
+      }
+    }
+  }
+
+  Future<List<String>> _getAvailableTimeSlots(
+    String doctorId,
+    DateTime date,
+  ) async {
+    // This would typically call the repository, but for now we'll simulate it
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Return mock time slots based on the doctor
+    final doctor = _selectedDoctor;
+    if (doctor != null) {
+      return doctor.availableTimeSlots;
+    }
+    return [];
+  }
+
+  void _proceedToQuestionnaire(Doctor doctor, String timeSlot, DateTime date) {
+    // Navigate to survey screen before confirming the appointment
+    Navigator.pushReplacementNamed(
+      context,
+      '/patient/survey',
+      arguments: {
+        'doctorId': doctor.id,
+        'timeSlot': timeSlot,
+        'date': date,
+        'isNewBooking': true,
+      },
     );
   }
 }
 
-class _DummyDoctor {
-  final String name;
-  final String specialization;
-  final double rating;
-  final String availability;
+class _DoctorCard extends StatelessWidget {
+  final Doctor doctor;
+  final VoidCallback onTap;
 
-  const _DummyDoctor({
-    required this.name,
-    required this.specialization,
-    required this.rating,
-    required this.availability,
-  });
+  const _DoctorCard({required this.doctor, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 4,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: Colors.green.withOpacity(0.1),
+                child: Icon(
+                  Icons.medical_services,
+                  size: 30,
+                  color: Colors.green,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      doctor.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      doctor.specialization,
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.star, size: 16, color: Colors.amber),
+                        const SizedBox(width: 4),
+                        Text(
+                          doctor.rating.toString(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Icon(Icons.access_time, size: 16, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          "متاح ${doctor.availability}",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
-
-final List<_DummyDoctor> _dummyDoctors = [
-  const _DummyDoctor(
-    name: "د. أحمد محمد",
-    specialization: "طب عام",
-    rating: 4.8,
-    availability: "اليوم",
-  ),
-  const _DummyDoctor(
-    name: "د. فاطمة علي",
-    specialization: "أمراض القلب",
-    rating: 4.9,
-    availability: "غداً",
-  ),
-  const _DummyDoctor(
-    name: "د. محمد حسن",
-    specialization: "طب الأطفال",
-    rating: 4.7,
-    availability: "اليوم",
-  ),
-  const _DummyDoctor(
-    name: "د. سارة أحمد",
-    specialization: "طب النساء",
-    rating: 4.6,
-    availability: "غداً",
-  ),
-  const _DummyDoctor(
-    name: "د. علي محمود",
-    specialization: "طب العظام",
-    rating: 4.5,
-    availability: "اليوم",
-  ),
-];

@@ -112,8 +112,7 @@ class _PatientNavigationGrid extends StatelessWidget {
                 subtitle: "أكمل الاستبيان الطبي",
                 icon: Icons.quiz,
                 color: Colors.purple,
-                onTap: () =>
-                    Navigator.pushNamed(context, '/patient/questionnaire'),
+                onTap: () => Navigator.pushNamed(context, '/patient/survey'),
               ),
             ),
             const SizedBox(width: 12), // Reduced from 16
