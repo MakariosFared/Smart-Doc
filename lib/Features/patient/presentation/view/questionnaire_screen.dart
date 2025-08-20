@@ -8,6 +8,7 @@ import '../cubit/booking_cubit.dart';
 import '../cubit/booking_state.dart';
 import '../../data/models/questionnaire.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
+import 'questionnaire_summary_page.dart';
 
 class QuestionnaireScreen extends StatefulWidget {
   const QuestionnaireScreen({super.key});
@@ -539,10 +540,20 @@ class _QuestionnaireScreenState extends State<QuestionnaireScreen> {
       ),
     );
 
-    // Navigate back after showing success message
+    // Navigate to questionnaire summary page
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => QuestionnaireSummaryPage(
+              doctorId: 'temp',
+              timeSlot: 'temp',
+              appointmentDate: DateTime.now(),
+              isNewBooking: false,
+            ),
+          ),
+        );
       }
     });
   }

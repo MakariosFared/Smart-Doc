@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:smart_doc/firebase_options.dart';
 import 'package:smart_doc/Core/di/app_dependency_injection.dart';
+import 'package:smart_doc/Core/Services/fcm_service.dart';
 import 'Features/auth/index.dart';
 import 'Features/auth/presentation/view/role_selection_page.dart';
 import 'Features/auth/presentation/view/login_page.dart';
@@ -19,6 +20,7 @@ import 'Features/patient/presentation/cubit/booking_cubit.dart';
 import 'Features/patient/presentation/cubit/questionnaire_cubit.dart';
 import 'Features/patient/presentation/cubit/survey_cubit.dart';
 import 'Features/queue/presentation/cubit/queue_cubit.dart';
+import 'Features/patient/presentation/view/questionnaire_summary_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,6 +28,15 @@ Future<void> main() async {
 
   // Initialize all dependencies
   await AppDependencyInjection.initialize();
+
+  // Initialize FCM service for push notifications
+  try {
+    await fcmService.initialize();
+    print('✅ FCM Service initialized successfully');
+  } catch (e) {
+    print('⚠️ FCM Service initialization failed: $e');
+    // Continue without FCM if it fails
+  }
 
   runApp(const SmartDoc());
 }
@@ -75,6 +86,13 @@ class SmartDoc extends StatelessWidget {
           '/patient/queue-status': (context) => const PatientQueuePage(),
           '/patient/questionnaire-screen': (context) =>
               const QuestionnaireScreen(),
+          '/patient/questionnaire-summary': (context) =>
+              QuestionnaireSummaryPage(
+                doctorId: 'temp',
+                timeSlot: 'temp',
+                appointmentDate: DateTime.now(),
+                isNewBooking: false,
+              ),
           '/patient/survey': (context) => const SurveyScreen(),
           '/patient/profile': (context) => const ProfilePage(),
         },

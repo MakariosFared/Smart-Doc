@@ -146,7 +146,28 @@ class MockQuestionnaireRepositoryImpl implements QuestionnaireRepository {
   ) async {
     await Future.delayed(const Duration(milliseconds: 600));
     return _mockResponses
-        .where((response) => response.patientId == patientId)
+        .where((response) => response.id == patientId)
         .toList();
+  }
+
+  @override
+  Future<QuestionnaireResponse?> getLatestQuestionnaireResponse(
+    String patientId,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    try {
+      // Get the most recent response for this patient
+      final patientResponses = _mockResponses
+          .where((response) => response.id == patientId)
+          .toList();
+
+      if (patientResponses.isEmpty) return null;
+
+      // Sort by submission time and return the latest
+      patientResponses.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      return patientResponses.first;
+    } catch (e) {
+      return null;
+    }
   }
 }

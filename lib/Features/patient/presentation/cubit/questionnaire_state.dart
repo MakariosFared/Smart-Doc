@@ -54,6 +54,22 @@ class QuestionnaireSubmitted extends QuestionnaireState {
   List<Object?> get props => [response];
 }
 
+/// Questionnaire summary loaded successfully
+class QuestionnaireSummaryLoaded extends QuestionnaireState {
+  final QuestionnaireResponse response;
+  final Questionnaire questionnaire;
+
+  const QuestionnaireSummaryLoaded(this.response, this.questionnaire);
+
+  @override
+  List<Object?> get props => [response, questionnaire];
+}
+
+/// Checking survey completion
+class SurveyChecking extends QuestionnaireState {
+  const SurveyChecking();
+}
+
 /// Questionnaire failure
 class QuestionnaireFailure extends QuestionnaireState {
   final String message;

@@ -17,6 +17,11 @@ abstract class QuestionnaireRepository {
   Future<List<QuestionnaireResponse>> getPatientQuestionnaireResponses(
     String patientId,
   );
+
+  /// Get the latest questionnaire response for a patient
+  Future<QuestionnaireResponse?> getLatestQuestionnaireResponse(
+    String patientId,
+  );
 }
 
 /// Custom exception for questionnaire errors

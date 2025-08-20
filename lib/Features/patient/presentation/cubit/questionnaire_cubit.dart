@@ -1,11 +1,14 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_doc/Core/di/app_dependency_injection.dart';
 import '../../data/repositories/questionnaire_repository.dart';
-import '../../data/models/questionnaire.dart';
 import 'questionnaire_state.dart';
 
 class QuestionnaireCubit extends Cubit<QuestionnaireState> {
   final QuestionnaireRepository _questionnaireRepository;
+
+  // Public getter for the repository
+  QuestionnaireRepository get questionnaireRepository =>
+      _questionnaireRepository;
 
   QuestionnaireCubit({QuestionnaireRepository? questionnaireRepository})
     : _questionnaireRepository =
@@ -22,6 +25,27 @@ class QuestionnaireCubit extends Cubit<QuestionnaireState> {
       emit(QuestionnaireLoaded(questionnaire));
     } catch (e) {
       emit(QuestionnaireFailure('فشل في تحميل الاستبيان: $e'));
+    }
+  }
+
+  /// Load questionnaire summary for a patient
+  Future<void> loadQuestionnaireSummary(String patientId) async {
+    try {
+      emit(const QuestionnaireLoading());
+
+      // Load both the questionnaire template and the latest response
+      final questionnaire = await _questionnaireRepository
+          .getMedicalQuestionnaire();
+      final response = await _questionnaireRepository
+          .getLatestQuestionnaireResponse(patientId);
+
+      if (response != null) {
+        emit(QuestionnaireSummaryLoaded(response, questionnaire));
+      } else {
+        emit(const QuestionnaireFailure('لم يتم العثور على استبيان مكتمل'));
+      }
+    } catch (e) {
+      emit(QuestionnaireFailure('فشل في تحميل ملخص الاستبيان: $e'));
     }
   }
 

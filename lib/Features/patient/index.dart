@@ -18,11 +18,11 @@ export 'presentation/cubit/booking_state.dart';
 export 'presentation/cubit/questionnaire_cubit.dart';
 export 'presentation/cubit/questionnaire_state.dart';
 export 'presentation/cubit/survey_cubit.dart';
-export 'presentation/cubit/survey_state.dart';
 
 // Views
 export 'presentation/view/questionnaire_screen.dart';
 export 'presentation/view/survey_screen.dart';
+export 'presentation/view/questionnaire_summary_page.dart';
 export 'presentation/view/book_appointment_page.dart';
 export 'presentation/view/home_patient_page.dart';
 export 'presentation/view/profile_page.dart';

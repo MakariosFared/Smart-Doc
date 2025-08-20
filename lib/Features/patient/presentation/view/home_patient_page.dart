@@ -143,21 +143,30 @@ class _PatientNavigationGrid extends StatelessWidget {
           children: [
             Expanded(
               child: _NavigationCard(
-                title: "الاستبيان",
-                subtitle: "أكمل الاستبيان الطبي",
-                icon: Icons.quiz,
-                color: Colors.purple,
-                onTap: () => Navigator.pushNamed(context, '/patient/survey'),
-              ),
-            ),
-            const SizedBox(width: 12), // Reduced from 16
-            Expanded(
-              child: _NavigationCard(
                 title: "الملف الشخصي",
                 subtitle: "عرض وتعديل بياناتك",
                 icon: Icons.person_outline,
                 color: Colors.teal,
                 onTap: () => Navigator.pushNamed(context, '/patient/profile'),
+              ),
+            ),
+            const SizedBox(width: 12), // Reduced from 16
+            Expanded(
+              child: _NavigationCard(
+                title: "ملخص الاستبيان",
+                subtitle: "عرض إجاباتك السابقة",
+                icon: Icons.assignment_turned_in,
+                color: Colors.indigo,
+                onTap: () => Navigator.pushNamed(
+                  context,
+                  '/patient/questionnaire-summary',
+                  arguments: {
+                    'doctorId': 'general',
+                    'timeSlot': 'general',
+                    'appointmentDate': DateTime.now(),
+                    'isNewBooking': false,
+                  },
+                ),
               ),
             ),
           ],

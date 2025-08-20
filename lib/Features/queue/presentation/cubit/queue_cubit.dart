@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_doc/Core/di/app_dependency_injection.dart';
+import 'package:smart_doc/Core/Services/fcm_service.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/models/queue_entry_model.dart';
 import 'queue_state.dart';
@@ -9,6 +10,13 @@ class QueueCubit extends Cubit<QueueState> {
   final QueueRepository _queueRepository;
   StreamSubscription<QueueEntry?>? _queueSubscription;
   StreamSubscription<List<QueueEntry>>? _queueListSubscription;
+
+  // Public getter for the repository
+  QueueRepository get queueRepository => _queueRepository;
+
+  // FCM notification tracking
+  int? _lastNotifiedPosition;
+  Timer? _notificationCheckTimer;
 
   QueueCubit({QueueRepository? queueRepository})
     : _queueRepository =
@@ -19,6 +27,7 @@ class QueueCubit extends Cubit<QueueState> {
   Future<void> close() {
     _queueSubscription?.cancel();
     _queueListSubscription?.cancel();
+    _notificationCheckTimer?.cancel();
     return super.close();
   }
 
@@ -38,9 +47,15 @@ class QueueCubit extends Cubit<QueueState> {
       );
       emit(QueueJoined(queueEntry));
 
+      // Subscribe to FCM notifications for this patient
+      await _subscribeToPatientNotifications(patientId);
+
       // Start listening to queue updates
       _listenToQueueUpdates(doctorId, patientId);
       _listenToDoctorQueue(doctorId);
+
+      // Start notification checking
+      _startNotificationChecking(doctorId, patientId);
     } catch (e) {
       if (e is QueueException) {
         emit(QueueError(e.message, code: e.code));
@@ -60,6 +75,10 @@ class QueueCubit extends Cubit<QueueState> {
       // Cancel the subscriptions
       _queueSubscription?.cancel();
       _queueListSubscription?.cancel();
+      _notificationCheckTimer?.cancel();
+
+      // Unsubscribe from FCM notifications
+      await _unsubscribeFromPatientNotifications(patientId);
 
       emit(const QueueLeft());
     } catch (e) {
@@ -69,6 +88,87 @@ class QueueCubit extends Cubit<QueueState> {
         emit(QueueError('فشل في مغادرة الطابور: $e'));
       }
     }
+  }
+
+  /// Subscribe to patient-specific FCM notifications
+  Future<void> _subscribeToPatientNotifications(String patientId) async {
+    try {
+      if (fcmService.isInitialized) {
+        await fcmService.subscribeToPatientNotifications(patientId);
+        print('✅ Patient $patientId subscribed to FCM notifications');
+      }
+    } catch (e) {
+      print('⚠️ Failed to subscribe to FCM notifications: $e');
+    }
+  }
+
+  /// Unsubscribe from patient-specific FCM notifications
+  Future<void> _unsubscribeFromPatientNotifications(String patientId) async {
+    try {
+      if (fcmService.isInitialized) {
+        await fcmService.unsubscribeFromPatientNotifications(patientId);
+        print('✅ Patient $patientId unsubscribed from FCM notifications');
+      }
+    } catch (e) {
+      print('⚠️ Failed to unsubscribe from FCM notifications: $e');
+    }
+  }
+
+  /// Start periodic notification checking
+  void _startNotificationChecking(String doctorId, String patientId) {
+    _notificationCheckTimer?.cancel();
+    _notificationCheckTimer = Timer.periodic(const Duration(seconds: 30), (
+      timer,
+    ) {
+      _checkAndSendNotifications(doctorId, patientId);
+    });
+  }
+
+  /// Check queue position and send notifications if needed
+  Future<void> _checkAndSendNotifications(
+    String doctorId,
+    String patientId,
+  ) async {
+    try {
+      final position = await getPatientQueuePositionNumber(doctorId, patientId);
+
+      if (position > 0 && position != _lastNotifiedPosition) {
+        _lastNotifiedPosition = position;
+
+        // Send local notification based on position
+        if (position == 1) {
+          _sendLocalNotification(
+            '🎉 دورك الآن!',
+            'يرجى التوجه للدكتور فوراً',
+            'queue_turn_now',
+          );
+        } else if (position == 2) {
+          _sendLocalNotification(
+            '⚠️ دورك قريب!',
+            'يرجى الاستعداد، دورك التالي',
+            'queue_turn_soon',
+          );
+        } else if (position == 3) {
+          _sendLocalNotification(
+            '📋 دورك قادم قريباً',
+            'يرجى الاستعداد، دورك في الطابور',
+            'queue_turn_coming',
+          );
+        }
+      }
+    } catch (e) {
+      print('Error checking notifications: $e');
+    }
+  }
+
+  /// Send local notification
+  void _sendLocalNotification(String title, String body, String type) {
+    // This would typically use the FCM service or local notifications
+    // For now, we'll just print the notification
+    print('🔔 NOTIFICATION: $title - $body');
+
+    // You could also trigger a state change to show in-app notifications
+    // emit(QueueNotification(title, body, type));
   }
 
   /// Get current queue position for a patient

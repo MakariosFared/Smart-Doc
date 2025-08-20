@@ -7,6 +7,8 @@ import '../cubit/queue_cubit.dart';
 import '../cubit/queue_state.dart';
 import '../../data/models/queue_entry_model.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../auth/data/models/app_user.dart';
+import 'widgets/queue_status_card.dart';
 import 'dart:async';
 
 class QueueDisplayPage extends StatefulWidget {
@@ -20,18 +22,19 @@ class QueueDisplayPage extends StatefulWidget {
 }
 
 class _QueueDisplayPageState extends State<QueueDisplayPage> {
-  String? _currentPatientId;
-  String? _currentPatientName;
-  int _currentPosition = -1;
-  List<QueueEntry> _queueList = [];
+  AppUser? _currentPatient;
   Timer? _positionUpdateTimer;
   StreamSubscription<List<QueueEntry>>? _queueSubscription;
+  int _currentPatientPosition = -1;
+  int _currentNumberBeingServed = 0;
+  List<QueueEntry> _currentQueue = [];
 
   @override
   void initState() {
     super.initState();
     _initializePatientInfo();
     _startPositionUpdates();
+    _listenToQueueUpdates();
   }
 
   @override
@@ -41,527 +44,341 @@ class _QueueDisplayPageState extends State<QueueDisplayPage> {
     super.dispose();
   }
 
+  Future<void> _initializePatientInfo() async {
+    final patient = await context.read<AuthCubit>().getCurrentUser();
+    if (patient != null && mounted) {
+      setState(() {
+        _currentPatient = patient;
+      });
+      _updateCurrentPosition();
+    }
+  }
+
   void _startPositionUpdates() {
-    // Update position every 10 seconds
+    // Update position every 10 seconds for real-time updates
     _positionUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (mounted && _currentPatientId != null) {
+      if (mounted) {
         _updateCurrentPosition();
       }
     });
   }
 
+  void _listenToQueueUpdates() {
+    // Listen to real-time queue updates
+    _queueSubscription = context
+        .read<QueueCubit>()
+        .queueRepository
+        .listenToDoctorQueue(widget.doctorId)
+        .listen(
+          (queueList) {
+            if (mounted) {
+              setState(() {
+                _currentQueue = queueList;
+              });
+              _updateCurrentPosition();
+              _checkForNotifications();
+            }
+          },
+          onError: (error) {
+            print('Error listening to queue updates: $error');
+          },
+        );
+  }
+
   Future<void> _updateCurrentPosition() async {
-    if (_currentPatientId == null) return;
+    if (_currentPatient == null) return;
 
     try {
-      final queueRepository = AppDependencyInjection.queueRepository;
-      final queueList = await queueRepository.getDoctorQueue(widget.doctorId);
+      final position = await context
+          .read<QueueCubit>()
+          .getPatientQueuePositionNumber(widget.doctorId, _currentPatient!.id);
 
       if (mounted) {
         setState(() {
-          _queueList = queueList;
+          _currentPatientPosition = position;
         });
-
-        // Update current position
-        final newPosition = queueList.indexWhere(
-          (entry) => entry.patientId == _currentPatientId,
-        );
-        if (newPosition >= 0) {
-          final newPositionNumber = newPosition + 1;
-
-          // Check if position changed and show notification
-          if (newPositionNumber != _currentPosition && _currentPosition > 0) {
-            _showPositionChangeNotification(
-              _currentPosition,
-              newPositionNumber,
-            );
-          }
-
-          setState(() {
-            _currentPosition = newPositionNumber;
-          });
-        }
       }
     } catch (e) {
       print('Error updating position: $e');
     }
   }
 
-  void _showPositionChangeNotification(int oldPosition, int newPosition) {
-    String message;
-    Color backgroundColor;
-
-    if (newPosition < oldPosition) {
-      message =
-          "ممتاز! تقدمت في الطابور من رقم $oldPosition إلى رقم $newPosition";
-      backgroundColor = Colors.green.shade600;
-    } else if (newPosition > oldPosition) {
-      message =
-          "انتبه! تأخرت في الطابور من رقم $oldPosition إلى رقم $newPosition";
-      backgroundColor = Colors.orange.shade600;
-    } else {
-      return; // No change
+  void _checkForNotifications() {
+    if (_currentPatientPosition > 0 && _currentPatientPosition <= 3) {
+      // Patient is within 3 positions of being served
+      _showPositionChangeNotification();
     }
+  }
 
-    if (mounted) {
+  void _showPositionChangeNotification() {
+    if (_currentPatientPosition == 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                newPosition < oldPosition
-                    ? Icons.trending_up
-                    : Icons.trending_down,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
+          content: const Text(
+            "🎉 دورك الآن! يرجى التوجه للدكتور",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          backgroundColor: backgroundColor,
+          backgroundColor: Colors.green,
           duration: const Duration(seconds: 5),
           behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    } else if (_currentPatientPosition == 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            "⚠️ دورك قريب! يرجى الاستعداد",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else if (_currentPatientPosition == 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            "📋 دورك قادم قريباً - يرجى الاستعداد",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
-  }
-
-  Future<void> _initializePatientInfo() async {
-    final authCubit = context.read<AuthCubit>();
-    final currentUser = await authCubit.getCurrentUser();
-    if (currentUser != null) {
-      setState(() {
-        _currentPatientId = currentUser.id;
-        _currentPatientName = currentUser.name;
-      });
-
-      // Check if patient is already in queue
-      final queueCubit = context.read<QueueCubit>();
-      final existingEntry = await queueCubit.getPatientQueuePosition(
-        widget.doctorId,
-        currentUser.id,
-      );
-
-      if (existingEntry != null) {
-        // Patient is already in queue, start listening
-        await _startQueueMonitoring();
-      }
-    }
-  }
-
-  Future<void> _startQueueMonitoring() async {
-    if (_currentPatientId == null) return;
-
-    final queueCubit = context.read<QueueCubit>();
-
-    // Get current position
-    final position = await queueCubit.getPatientQueuePositionNumber(
-      widget.doctorId,
-      _currentPatientId!,
-    );
-
-    if (position > 0) {
-      setState(() {
-        _currentPosition = position;
-      });
-    }
-
-    // Get initial queue data using the repository directly
-    final queueRepository = AppDependencyInjection.queueRepository;
-    final queueList = await queueRepository.getDoctorQueue(widget.doctorId);
-    setState(() {
-      _queueList = queueList;
-    });
-
-    // Update current position
-    final newPosition = queueList.indexWhere(
-      (entry) => entry.patientId == _currentPatientId,
-    );
-    if (newPosition >= 0) {
-      setState(() {
-        _currentPosition = newPosition + 1;
-      });
-    }
-  }
-
-  Future<void> _joinQueue() async {
-    if (_currentPatientId == null || _currentPatientName == null) return;
-
-    final queueCubit = context.read<QueueCubit>();
-    await queueCubit.joinQueue(
-      widget.doctorId,
-      _currentPatientId!,
-      _currentPatientName!,
-    );
-
-    // Start monitoring after joining
-    await _startQueueMonitoring();
-  }
-
-  Future<void> _leaveQueue() async {
-    if (_currentPatientId == null) return;
-
-    final queueCubit = context.read<QueueCubit>();
-    await queueCubit.leaveQueue(widget.doctorId, _currentPatientId!);
-
-    setState(() {
-      _currentPosition = -1;
-      _queueList = [];
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CommonAppBar(
-        title: "طابور ${widget.doctorName ?? 'الطبيب'}",
+        title: "طابور الدكتور ${widget.doctorName ?? widget.doctorId}",
         backgroundColor: Colors.blue,
       ),
-      body: BlocConsumer<QueueCubit, QueueState>(
-        listener: (context, state) {
-          if (state is QueueError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        },
-        builder: (context, state) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildCurrentStatusCard(state),
-                const SizedBox(height: 20),
-                _buildQueueList(),
-                const SizedBox(height: 20),
-                _buildActionButtons(state),
-              ],
-            ),
-          );
-        },
+      body: _currentPatient == null
+          ? const Center(child: CircularProgressIndicator())
+          : _buildQueueContent(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showPositionDetails,
+        icon: const Icon(Icons.info_outline, color: Colors.white),
+        label: Text(
+          "موقعي: ${_currentPatientPosition > 0 ? 'رقم $_currentPatientPosition' : 'غير محدد'}",
+          style: const TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.blue,
       ),
-      // Floating action button to show current position
-      floatingActionButton: _currentPosition > 0
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                _showPositionDetails();
-              },
-              backgroundColor: Colors.orange.shade600,
-              icon: const Icon(Icons.queue, color: Colors.white),
-              label: Text(
-                "موقعك: رقم $_currentPosition",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            )
-          : null,
     );
   }
 
-  void _showPositionDetails() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.queue, color: Colors.orange.shade600),
-            const SizedBox(width: 8),
-            const Text("تفاصيل موقعك في الطابور"),
-          ],
+  Widget _buildQueueContent() {
+    return Column(
+      children: [
+        _buildCurrentStatusCard(),
+        const SizedBox(height: 16),
+        _buildQueueList(),
+      ],
+    );
+  }
+
+  Widget _buildCurrentStatusCard() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade50, Colors.blue.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildPositionInfoRow(
-              "الموقع الحالي",
-              "رقم $_currentPosition",
-              Colors.orange.shade600,
-            ),
-            const SizedBox(height: 12),
-            _buildPositionInfoRow(
-              "إجمالي المرضى",
-              "${_queueList.length}",
-              Colors.blue.shade600,
-            ),
-            const SizedBox(height: 12),
-            _buildPositionInfoRow(
-              "الحالة",
-              "في الانتظار",
-              Colors.green.shade600,
-            ),
-            const SizedBox(height: 12),
-            _buildPositionInfoRow(
-              "انضم منذ",
-              _formatTime(
-                _queueList
-                    .firstWhere(
-                      (entry) => entry.patientId == _currentPatientId,
-                      orElse: () => QueueEntry(
-                        id: '',
-                        patientId: '',
-                        patientName: '',
-                        doctorId: '',
-                        status: QueueStatus.waiting,
-                        timestamp: DateTime.now(),
-                      ),
-                    )
-                    .timestamp,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "مرحباً ${_currentPatient?.name ?? 'المريض'}",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "موقعك في الطابور",
+                    style: TextStyle(fontSize: 14, color: Colors.blue.shade700),
+                  ),
+                ],
               ),
-              Colors.grey.shade600,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      _currentPatientPosition > 0
+                          ? "$_currentPatientPosition"
+                          : "?",
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                    Text(
+                      "رقم",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildProgressIndicator(),
+          const SizedBox(height: 16),
+          _buildEstimatedWaitTime(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressIndicator() {
+    final totalInQueue = _currentQueue.length;
+    final progress = totalInQueue > 0
+        ? (_currentPatientPosition - 1) / totalInQueue
+        : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "التقدم في الطابور",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.blue.shade700,
+              ),
+            ),
+            Text(
+              "$_currentPatientPosition من $totalInQueue",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.blue.shade700,
+              ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("إغلاق"),
+        const SizedBox(height: 8),
+        LinearProgressIndicator(
+          value: progress.clamp(0.0, 1.0),
+          backgroundColor: Colors.blue.shade200,
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+          minHeight: 8,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEstimatedWaitTime() {
+    // Simple estimation: 10 minutes per patient
+    final estimatedMinutes = (_currentPatientPosition - 1) * 10;
+
+    if (estimatedMinutes <= 0) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.green.shade100,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.shade300),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green.shade600, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              "دورك الآن!",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.green.shade700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.access_time, color: Colors.orange.shade600, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            "الوقت المتوقع: $estimatedMinutes دقيقة",
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.orange.shade700,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPositionInfoRow(String label, String value, Color color) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
-            ),
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCurrentStatusCard(QueueState state) {
-    if (_currentPosition > 0) {
-      final estimatedWaitTime = _calculateEstimatedWaitTime();
-
-      return Card(
-        elevation: 4,
-        color: Colors.blue.shade50,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
+  Widget _buildQueueList() {
+    if (_currentQueue.isEmpty) {
+      return Expanded(
+        child: Center(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.queue, size: 48, color: Colors.blue.shade700),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "أنت في الطابور",
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                      Text(
-                        "طابور الدكتور ${widget.doctorId}",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.blue.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // Position information
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.shade300),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatusItem(
-                      "الموقع",
-                      "رقم $_currentPosition",
-                      Icons.format_list_numbered,
-                      Colors.orange.shade700,
-                    ),
-                    _buildStatusItem(
-                      "إجمالي المرضى",
-                      "${_queueList.length}",
-                      Icons.people,
-                      Colors.blue.shade700,
-                    ),
-                    _buildStatusItem(
-                      "الوقت المتوقع",
-                      estimatedWaitTime,
-                      Icons.access_time,
-                      Colors.green.shade700,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Progress indicator
-              if (_queueList.length > 1)
-                Column(
-                  children: [
-                    Text(
-                      "تقدم الطابور",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: (_currentPosition - 1) / (_queueList.length - 1),
-                      backgroundColor: Colors.grey.shade300,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Colors.blue.shade600,
-                      ),
-                      minHeight: 8,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "${_currentPosition - 1} من ${_queueList.length - 1} مريض أمامك",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-      );
-    } else {
-      return Card(
-        elevation: 4,
-        color: Colors.grey.shade50,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Icon(Icons.queue_outlined, size: 48, color: Colors.grey.shade600),
+              Icon(Icons.queue, size: 64, color: Colors.grey.shade400),
               const SizedBox(height: 16),
               Text(
-                "أنت لست في الطابور",
+                "الطابور فارغ",
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.w600,
                   color: Colors.grey.shade600,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                "انضم للطابور لرؤية الطبيب",
-                style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-  }
-
-  Widget _buildStatusItem(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Column(
-      children: [
-        Icon(icon, size: 24, color: color),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-      ],
-    );
-  }
-
-  String _calculateEstimatedWaitTime() {
-    if (_queueList.length <= 1) return "فوراً";
-
-    // Estimate 5 minutes per patient
-    final estimatedMinutes = (_currentPosition - 1) * 5;
-
-    if (estimatedMinutes < 60) {
-      return "$estimatedMinutes دقيقة";
-    } else {
-      final hours = estimatedMinutes ~/ 60;
-      final minutes = estimatedMinutes % 60;
-      if (minutes == 0) {
-        return "$hours ساعة";
-      } else {
-        return "$hours ساعة و $minutes دقيقة";
-      }
-    }
-  }
-
-  Widget _buildQueueList() {
-    if (_queueList.isEmpty) {
-      return Card(
-        elevation: 2,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Icon(Icons.people_outline, size: 48, color: Colors.grey.shade400),
-              const SizedBox(height: 16),
-              Text(
-                "لا يوجد مرضى في الطابور",
-                style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+                "لا يوجد مرضى في الطابور حالياً",
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
               ),
             ],
           ),
@@ -569,29 +386,20 @@ class _QueueDisplayPageState extends State<QueueDisplayPage> {
       );
     }
 
-    return Card(
-      elevation: 2,
+    return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                Icon(Icons.people, color: Colors.blue.shade700),
+                Icon(Icons.people, color: Colors.blue.shade600, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  "قائمة الطابور (${_queueList.length} مريض)",
+                  "المرضى في الطابور (${_currentQueue.length})",
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: Colors.blue.shade700,
                   ),
@@ -599,122 +407,166 @@ class _QueueDisplayPageState extends State<QueueDisplayPage> {
               ],
             ),
           ),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _queueList.length,
-            itemBuilder: (context, index) {
-              final entry = _queueList[index];
-              final isCurrentPatient = entry.patientId == _currentPatientId;
-              final position = index + 1;
+          const SizedBox(height: 12),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _currentQueue.length,
+              itemBuilder: (context, index) {
+                final entry = _currentQueue[index];
+                final position = index + 1;
+                final isCurrentPatient = entry.patientId == _currentPatient?.id;
 
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isCurrentPatient ? Colors.blue.shade100 : Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isCurrentPatient
-                        ? Colors.blue.shade300
-                        : Colors.grey.shade200,
-                    width: isCurrentPatient ? 2 : 1,
-                  ),
-                ),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isCurrentPatient
-                        ? Colors.blue.shade600
-                        : Colors.grey.shade400,
-                    child: Text(
-                      "$position",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  title: Text(
-                    entry.patientName,
-                    style: TextStyle(
-                      fontWeight: isCurrentPatient
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      color: isCurrentPatient
-                          ? Colors.blue.shade800
-                          : Colors.black87,
-                    ),
-                  ),
-                  subtitle: Text(
-                    "انضم: ${_formatTime(entry.timestamp)}",
-                    style: TextStyle(
-                      color: isCurrentPatient
-                          ? Colors.blue.shade600
-                          : Colors.grey.shade600,
-                    ),
-                  ),
-                  trailing: isCurrentPatient
-                      ? Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade600,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            "أنت",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      : null,
-                ),
-              );
-            },
+                return _buildQueueItem(entry, position, isCurrentPatient);
+              },
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionButtons(QueueState state) {
-    if (_currentPosition > 0) {
-      // Patient is in queue
-      return CustomButton(
-        text: "مغادرة الطابور",
-        onPressed: state is QueueLoading ? null : _leaveQueue,
-        isLoading: state is QueueLoading,
-        type: ButtonType.danger,
-        icon: Icons.exit_to_app,
-      );
-    } else {
-      // Patient is not in queue
-      return CustomButton(
-        text: "انضم للطابور",
-        onPressed: state is QueueLoading ? null : _joinQueue,
-        isLoading: state is QueueLoading,
-        type: ButtonType.success,
-        icon: Icons.queue,
-      );
+  Widget _buildQueueItem(
+    QueueEntry entry,
+    int position,
+    bool isCurrentPatient,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isCurrentPatient ? Colors.blue.shade50 : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isCurrentPatient ? Colors.blue.shade300 : Colors.grey.shade300,
+          width: isCurrentPatient ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: isCurrentPatient
+                ? Colors.blue.shade600
+                : Colors.grey.shade400,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Center(
+            child: Text(
+              "$position",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+        title: Text(
+          entry.patientName,
+          style: TextStyle(
+            fontWeight: isCurrentPatient ? FontWeight.bold : FontWeight.w500,
+            color: isCurrentPatient ? Colors.blue.shade700 : Colors.black87,
+          ),
+        ),
+        subtitle: Text(
+          "الحالة: ${entry.statusDisplayName}",
+          style: TextStyle(color: _getStatusColor(entry.status), fontSize: 12),
+        ),
+        trailing: isCurrentPatient
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade600,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  "أنت",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+            : null,
+      ),
+    );
+  }
+
+  Color _getStatusColor(QueueStatus status) {
+    switch (status) {
+      case QueueStatus.waiting:
+        return Colors.orange;
+      case QueueStatus.inProgress:
+        return Colors.blue;
+      case QueueStatus.done:
+        return Colors.green;
+      case QueueStatus.cancelled:
+        return Colors.red;
     }
   }
 
-  String _formatTime(DateTime time) {
-    final now = DateTime.now();
-    final difference = now.difference(time);
+  void _showPositionDetails() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("تفاصيل موقعك في الطابور"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow("اسم المريض:", _currentPatient?.name ?? "غير محدد"),
+            _buildDetailRow(
+              "رقم الطابور:",
+              _currentPatientPosition > 0
+                  ? "$_currentPatientPosition"
+                  : "غير محدد",
+            ),
+            _buildDetailRow("إجمالي المرضى:", "${_currentQueue.length}"),
+            _buildDetailRow("الحالة:", _getCurrentPatientStatus()),
+            if (_currentPatientPosition > 1)
+              _buildDetailRow(
+                "الوقت المتوقع:",
+                "${(_currentPatientPosition - 1) * 10} دقيقة",
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("إغلاق"),
+          ),
+        ],
+      ),
+    );
+  }
 
-    if (difference.inMinutes < 1) {
-      return "الآن";
-    } else if (difference.inMinutes < 60) {
-      return "منذ ${difference.inMinutes} دقيقة";
-    } else if (difference.inHours < 24) {
-      return "منذ ${difference.inHours} ساعة";
-    } else {
-      return "${time.hour}:${time.minute.toString().padLeft(2, '0')}";
-    }
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  String _getCurrentPatientStatus() {
+    if (_currentPatientPosition <= 0) return "غير محدد";
+    if (_currentPatientPosition == 1) return "دورك الآن";
+    if (_currentPatientPosition <= 3) return "قريب جداً";
+    if (_currentPatientPosition <= 5) return "قريب";
+    return "في الانتظار";
   }
 }
