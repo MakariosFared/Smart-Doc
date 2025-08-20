@@ -1,7 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_doc/Core/di/app_dependency_injection.dart';
 import '../../data/repositories/booking_repository.dart';
-import '../../data/models/appointment.dart';
 import '../../data/models/doctor.dart';
 import 'booking_state.dart';
 

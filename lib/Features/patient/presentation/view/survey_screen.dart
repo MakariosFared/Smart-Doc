@@ -653,7 +653,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
       // Automatically add patient to the queue
       try {
         final queueCubit = context.read<QueueCubit>();
-        await queueCubit.joinQueue(doctorId, patientId!.id, patientId.name);
+        await queueCubit.joinQueue(doctorId, patientId.id, patientId.name);
 
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -689,6 +689,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
     }
   }
 
+  // ignore: unused_element
   void _createAppointment(
     String doctorId,
     String timeSlot,

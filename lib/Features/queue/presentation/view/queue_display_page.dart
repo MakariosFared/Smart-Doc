@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:smart_doc/Core/di/app_dependency_injection.dart';
 import '../../../auth/presentation/view/widgets/common_app_bar.dart';
-import '../../../auth/presentation/view/widgets/custom_button.dart';
 import '../cubit/queue_cubit.dart';
-import '../cubit/queue_state.dart';
 import '../../data/models/queue_entry_model.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/data/models/app_user.dart';
-import 'widgets/queue_status_card.dart';
 import 'dart:async';
 
 class QueueDisplayPage extends StatefulWidget {
