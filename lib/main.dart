@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:smart_doc/firebase_options.dart';
+import 'package:smart_doc/Core/di/app_dependency_injection.dart';
 import 'Features/auth/index.dart';
 import 'Features/auth/presentation/view/role_selection_page.dart';
 import 'Features/auth/presentation/view/login_page.dart';
 import 'Features/auth/presentation/view/signup_page.dart';
 import 'Features/patient/presentation/view/home_patient_page.dart';
 import 'Features/patient/presentation/view/book_appointment_page.dart';
-import 'Features/patient/presentation/view/queue_status_page.dart';
+import 'Features/queue/presentation/view/patient_queue_page.dart';
 import 'Features/patient/presentation/view/questionnaire_screen.dart';
 import 'Features/patient/presentation/view/survey_screen.dart';
 import 'Features/patient/presentation/view/profile_page.dart';
@@ -17,11 +18,15 @@ import 'Features/doctor/presentation/view/doctor_home_screen.dart';
 import 'Features/patient/presentation/cubit/booking_cubit.dart';
 import 'Features/patient/presentation/cubit/questionnaire_cubit.dart';
 import 'Features/patient/presentation/cubit/survey_cubit.dart';
-import 'core/di/dependency_injection.dart';
+import 'Features/queue/presentation/cubit/queue_cubit.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize all dependencies
+  await AppDependencyInjection.initialize();
+
   runApp(const SmartDoc());
 }
 
@@ -32,26 +37,13 @@ class SmartDoc extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<AuthCubit>(
-          create: (context) =>
-              AuthCubit(authRepository: DependencyInjection.authRepository),
-        ),
-        BlocProvider<BookingCubit>(
-          create: (context) => BookingCubit(
-            bookingRepository: DependencyInjection.bookingRepository,
-          ),
-        ),
+        BlocProvider<AuthCubit>(create: (context) => AuthCubit()),
+        BlocProvider<BookingCubit>(create: (context) => BookingCubit()),
         BlocProvider<QuestionnaireCubit>(
-          create: (context) => QuestionnaireCubit(
-            questionnaireRepository:
-                DependencyInjection.questionnaireRepository,
-          ),
+          create: (context) => QuestionnaireCubit(),
         ),
-        BlocProvider<SurveyCubit>(
-          create: (context) => SurveyCubit(
-            surveyRepository: DependencyInjection.surveyRepository,
-          ),
-        ),
+        BlocProvider<SurveyCubit>(create: (context) => SurveyCubit()),
+        BlocProvider<QueueCubit>(create: (context) => QueueCubit()),
       ],
       child: MaterialApp(
         title: 'Clinic Queue',
@@ -80,7 +72,7 @@ class SmartDoc extends StatelessWidget {
 
           // Patient Feature Routes
           '/patient/book-appointment': (context) => const BookAppointmentPage(),
-          '/patient/queue-status': (context) => const QueueStatusPage(),
+          '/patient/queue-status': (context) => const PatientQueuePage(),
           '/patient/questionnaire-screen': (context) =>
               const QuestionnaireScreen(),
           '/patient/survey': (context) => const SurveyScreen(),

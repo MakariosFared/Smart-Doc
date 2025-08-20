@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:smart_doc/Features/patient/data/models/survey_model.dart';
 import '../../../auth/presentation/view/widgets/common_app_bar.dart';
 import '../../../auth/presentation/view/widgets/custom_button.dart';
 import '../cubit/survey_cubit.dart';
 import '../cubit/survey_state.dart';
 import '../cubit/booking_cubit.dart';
 import '../cubit/booking_state.dart';
-import '../../domain/entities/survey.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
+import '../../../queue/presentation/cubit/queue_cubit.dart';
+import '../../../queue/presentation/view/queue_display_page.dart';
 
 class SurveyScreen extends StatefulWidget {
   const SurveyScreen({super.key});
@@ -607,14 +609,84 @@ class _SurveyScreenState extends State<SurveyScreen> {
   ) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("تم إرسال الاستبيان بنجاح! جاري إنشاء الموعد..."),
+        content: Text("تم إرسال الاستبيان بنجاح! جاري الانضمام للطابور..."),
         backgroundColor: Colors.green,
         duration: Duration(seconds: 2),
       ),
     );
 
-    // Continue with appointment creation
-    _createAppointment(doctorId, timeSlot, appointmentDate, survey);
+    // First join the queue, then create appointment
+    _joinQueueAndCreateAppointment(doctorId, timeSlot, appointmentDate, survey);
+  }
+
+  void _joinQueueAndCreateAppointment(
+    String doctorId,
+    String timeSlot,
+    DateTime appointmentDate,
+    Survey survey,
+  ) async {
+    final patientId = await context.read<AuthCubit>().getCurrentUser();
+    if (patientId?.id != null) {
+      // Convert survey data to questionnaire answers format for compatibility
+      final questionnaireAnswers = {
+        'surveyId': survey.id,
+        'hasChronicDiseases': survey.data.hasChronicDiseases,
+        'chronicDiseasesDetails': survey.data.chronicDiseasesDetails,
+        'isTakingMedications': survey.data.isTakingMedications,
+        'medicationsDetails': survey.data.medicationsDetails,
+        'hasAllergies': survey.data.hasAllergies,
+        'allergiesDetails': survey.data.allergiesDetails,
+        'symptoms': survey.data.symptoms,
+        'symptomsDuration': survey.data.symptomsDuration,
+        'submittedAt': survey.timestamp.toIso8601String(),
+      };
+
+      // First create the appointment
+      context.read<BookingCubit>().createAppointment(
+        patientId: patientId!.id,
+        doctorId: doctorId,
+        timeSlot: timeSlot,
+        appointmentDate: appointmentDate,
+        questionnaireAnswers: questionnaireAnswers,
+      );
+
+      // Automatically add patient to the queue
+      try {
+        final queueCubit = context.read<QueueCubit>();
+        await queueCubit.joinQueue(doctorId, patientId!.id, patientId.name);
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("تم إضافتك للطابور تلقائياً!"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+
+        // Navigate to queue display page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => QueueDisplayPage(
+              doctorId: doctorId,
+              doctorName: null, // We don't have doctor name in this context
+            ),
+          ),
+        );
+      } catch (e) {
+        // If queue join fails, still show success for survey
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "تم إرسال الاستبيان بنجاح! يمكنك الانضمام للطابور يدوياً.",
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   void _createAppointment(

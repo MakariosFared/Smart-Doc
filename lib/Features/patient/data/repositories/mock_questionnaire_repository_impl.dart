@@ -1,4 +1,5 @@
-import '../../domain/repositories/questionnaire_repository.dart';
+import 'package:smart_doc/Features/patient/data/repositories/questionnaire_repository.dart';
+
 import '../models/questionnaire.dart';
 
 class MockQuestionnaireRepositoryImpl implements QuestionnaireRepository {

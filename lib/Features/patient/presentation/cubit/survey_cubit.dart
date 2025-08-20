@@ -1,13 +1,15 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/repositories/survey_repository.dart';
-import '../../domain/entities/survey.dart';
+import 'package:smart_doc/Core/di/app_dependency_injection.dart';
+import '../../data/repositories/survey_repository.dart';
+import '../../data/models/survey_model.dart';
 import 'survey_state.dart';
 
 class SurveyCubit extends Cubit<SurveyState> {
   final SurveyRepository _surveyRepository;
 
-  SurveyCubit({required SurveyRepository surveyRepository})
-    : _surveyRepository = surveyRepository,
+  SurveyCubit({SurveyRepository? surveyRepository})
+    : _surveyRepository =
+          surveyRepository ?? AppDependencyInjection.surveyRepository,
       super(const SurveyInitial());
 
   /// Submit survey response

@@ -1,4 +1,4 @@
-import '../../data/models/questionnaire.dart';
+import '../models/questionnaire.dart';
 
 abstract class QuestionnaireRepository {
   /// Get the medical questionnaire for patients

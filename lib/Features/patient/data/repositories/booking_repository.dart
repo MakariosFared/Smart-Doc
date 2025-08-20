@@ -1,5 +1,5 @@
-import '../../data/models/appointment.dart';
-import '../../data/models/doctor.dart';
+import '../models/appointment.dart';
+import '../models/doctor.dart';
 
 abstract class BookingRepository {
   /// Get all available doctors

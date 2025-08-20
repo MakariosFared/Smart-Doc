@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../domain/repositories/auth_repository.dart';
+import 'auth_repository.dart';
 import '../models/app_user.dart';
 
 class FirebaseAuthRepositoryImpl implements AuthRepository {

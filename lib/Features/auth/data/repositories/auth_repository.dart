@@ -1,4 +1,4 @@
-import '../../data/models/app_user.dart';
+import '../models/app_user.dart';
 
 abstract class AuthRepository {
   /// Authenticates a user with email and password

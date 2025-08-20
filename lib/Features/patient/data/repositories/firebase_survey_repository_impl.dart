@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../domain/repositories/survey_repository.dart';
-import '../../domain/entities/survey.dart';
+import '../repositories/survey_repository.dart';
 import '../models/survey_model.dart';
 
 class FirebaseSurveyRepositoryImpl implements SurveyRepository {

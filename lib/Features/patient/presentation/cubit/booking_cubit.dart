@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/repositories/booking_repository.dart';
+import 'package:smart_doc/Core/di/app_dependency_injection.dart';
+import '../../data/repositories/booking_repository.dart';
 import '../../data/models/appointment.dart';
 import '../../data/models/doctor.dart';
 import 'booking_state.dart';
@@ -7,8 +8,9 @@ import 'booking_state.dart';
 class BookingCubit extends Cubit<BookingState> {
   final BookingRepository _bookingRepository;
 
-  BookingCubit({required BookingRepository bookingRepository})
-    : _bookingRepository = bookingRepository,
+  BookingCubit({BookingRepository? bookingRepository})
+    : _bookingRepository =
+          bookingRepository ?? AppDependencyInjection.bookingRepository,
       super(const BookingInitial());
 
   /// Load available doctors

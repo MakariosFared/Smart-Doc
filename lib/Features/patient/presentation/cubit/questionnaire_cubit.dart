@@ -1,13 +1,16 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/repositories/questionnaire_repository.dart';
+import 'package:smart_doc/Core/di/app_dependency_injection.dart';
+import '../../data/repositories/questionnaire_repository.dart';
 import '../../data/models/questionnaire.dart';
 import 'questionnaire_state.dart';
 
 class QuestionnaireCubit extends Cubit<QuestionnaireState> {
   final QuestionnaireRepository _questionnaireRepository;
 
-  QuestionnaireCubit({required QuestionnaireRepository questionnaireRepository})
-    : _questionnaireRepository = questionnaireRepository,
+  QuestionnaireCubit({QuestionnaireRepository? questionnaireRepository})
+    : _questionnaireRepository =
+          questionnaireRepository ??
+          AppDependencyInjection.questionnaireRepository,
       super(const QuestionnaireInitial());
 
   /// Load the medical questionnaire

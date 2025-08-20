@@ -1,2 +1,2 @@
-// Core exports
-export 'di/dependency_injection.dart';
+// Core utilities and shared components
+export 'di/app_dependency_injection.dart';

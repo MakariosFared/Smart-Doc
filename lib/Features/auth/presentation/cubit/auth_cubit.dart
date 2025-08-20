@@ -1,13 +1,14 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/repositories/auth_repository.dart';
+import 'package:smart_doc/Core/di/app_dependency_injection.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../data/models/app_user.dart';
 import 'auth_state.dart';
 
 class AuthCubit extends Cubit<AuthState> {
   final AuthRepository _authRepository;
 
-  AuthCubit({required AuthRepository authRepository})
-    : _authRepository = authRepository,
+  AuthCubit({AuthRepository? authRepository})
+    : _authRepository = authRepository ?? AppDependencyInjection.authRepository,
       super(const AuthInitial());
 
   /// Login with email and password
