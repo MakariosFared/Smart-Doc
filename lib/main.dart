@@ -18,7 +18,6 @@ import 'Features/patient/presentation/view/survey_screen.dart';
 import 'Features/patient/presentation/view/profile_page.dart';
 import 'Features/doctor/presentation/view/doctor_home_screen.dart';
 import 'Features/doctor/presentation/view/doctor_home_page.dart';
-import 'Features/doctor/presentation/view/doctor_queue_home_page.dart';
 import 'Features/doctor/presentation/cubit/doctor_cubit.dart';
 import 'Features/patient/presentation/cubit/booking_cubit.dart';
 import 'Features/patient/presentation/cubit/questionnaire_cubit.dart';
@@ -95,9 +94,7 @@ class SmartDoc extends StatelessWidget {
           '/doctors-list': (context) => const DoctorsListPage(),
 
           // Doctor Feature Routes
-          '/doctor/queue': (context) =>
-              const DoctorHomePage(doctorId: 'current'),
-          '/doctor/queue-home': (context) => const DoctorQueueHomePage(),
+          '/doctor/queue': (context) => const DoctorHomePage(),
 
           // Patient Feature Routes
           '/patient/book-appointment': (context) => const BookAppointmentPage(),

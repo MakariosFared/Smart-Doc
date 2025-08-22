@@ -9,9 +9,9 @@ import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/data/models/app_user.dart';
 
 class DoctorHomePage extends StatefulWidget {
-  final String doctorId;
+  final String? doctorId;
 
-  const DoctorHomePage({super.key, required this.doctorId});
+  const DoctorHomePage({super.key, this.doctorId});
 
   @override
   State<DoctorHomePage> createState() => _DoctorHomePageState();
@@ -19,6 +19,7 @@ class DoctorHomePage extends StatefulWidget {
 
 class _DoctorHomePageState extends State<DoctorHomePage> {
   AppUser? _currentDoctor;
+  DoctorCubit? _doctorCubit; // Store reference to cubit
 
   @override
   void initState() {
@@ -26,21 +27,48 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
     _loadDoctorInfo();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Store reference to cubit when dependencies change
+    _doctorCubit = context.read<DoctorCubit>();
+  }
+
   Future<void> _loadDoctorInfo() async {
-    // Use the doctorId passed to the widget
-    final doctor = await context.read<AuthCubit>().getCurrentUser();
-    if (doctor != null && mounted) {
-      setState(() {
-        _currentDoctor = doctor;
-      });
-      // Start listening to queue updates using the passed doctorId
-      context.read<DoctorCubit>().startListeningToQueue(widget.doctorId);
+    // Use the passed doctorId if available, otherwise get the current logged-in doctor
+    String targetDoctorId;
+
+    if (widget.doctorId != null) {
+      targetDoctorId = widget.doctorId!;
+      // For now, we'll still get the current user for display purposes
+      // In a real app, you might want to fetch the target doctor's info
+      final doctor = await context.read<AuthCubit>().getCurrentUser();
+      if (doctor != null && mounted) {
+        setState(() {
+          _currentDoctor = doctor;
+        });
+      }
+    } else {
+      // Get the current logged-in doctor
+      final doctor = await context.read<AuthCubit>().getCurrentUser();
+      if (doctor != null && mounted) {
+        setState(() {
+          _currentDoctor = doctor;
+        });
+        targetDoctorId = doctor.id;
+      } else {
+        return;
+      }
     }
+
+    // Start listening to queue updates for the target doctor
+    context.read<DoctorCubit>().startListeningToQueue(targetDoctorId);
   }
 
   @override
   void dispose() {
-    context.read<DoctorCubit>().stopListeningToQueue();
+    // Use stored reference instead of context.read
+    _doctorCubit?.stopListeningToQueue();
     super.dispose();
   }
 

@@ -121,10 +121,8 @@ class _DoctorNavigationGrid extends StatelessWidget {
                 subtitle: "عرض وإدارة مرضى الطابور",
                 icon: Icons.queue,
                 color: Colors.blue,
-                onTap: () => Navigator.pushReplacementNamed(
-                  context,
-                  '/doctor/queue-home',
-                ),
+                onTap: () =>
+                    Navigator.pushReplacementNamed(context, '/doctor/queue'),
               ),
             ),
             const SizedBox(width: 12),
@@ -157,7 +155,6 @@ class _DoctorNavigationGrid extends StatelessWidget {
                 icon: Icons.analytics,
                 color: Colors.purple,
                 onTap: () {
-                  // TODO: Implement reports page
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text("سيتم إضافة هذه الميزة قريباً"),
@@ -175,28 +172,6 @@ class _DoctorNavigationGrid extends StatelessWidget {
                 icon: Icons.people,
                 color: Colors.indigo,
                 onTap: () => Navigator.pushNamed(context, '/doctors-list'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _NavigationCard(
-                title: "الإعدادات",
-                subtitle: "تخصيص الإعدادات",
-                icon: Icons.settings,
-                color: Colors.grey,
-                onTap: () {
-                  // TODO: Implement settings page
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("سيتم إضافة هذه الميزة قريباً"),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                },
               ),
             ),
           ],

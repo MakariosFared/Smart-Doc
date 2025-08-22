@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/auth_cubit.dart';
 import '../../data/models/app_user.dart';
 import 'widgets/common_app_bar.dart';
+import '../../../doctor/presentation/view/doctor_home_page.dart';
 
 class DoctorsListPage extends StatefulWidget {
   const DoctorsListPage({super.key});
@@ -185,39 +186,52 @@ class _DoctorsListPageState extends State<DoctorsListPage> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Colors.green.shade600,
-          child: Text(
-            "${index}",
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        title: Text(
-          doctor.name,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "البريد الإلكتروني: ${doctor.emailOrPhone}",
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-            ),
-            Text(
-              "الدور: ${doctor.roleDisplayName}",
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.green.shade600,
-                fontWeight: FontWeight.w500,
+      child: InkWell(
+        onTap: () => _openDoctorQueue(doctor),
+        borderRadius: BorderRadius.circular(8),
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Colors.green.shade600,
+            child: Text(
+              "${index}",
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ],
+          ),
+          title: Text(
+            doctor.name,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "البريد الإلكتروني: ${doctor.emailOrPhone}",
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              ),
+              Text(
+                "الدور: ${doctor.roleDisplayName}",
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.green.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          trailing: Icon(Icons.queue, color: Colors.green.shade600),
         ),
-        trailing: Icon(Icons.medical_services, color: Colors.green.shade600),
+      ),
+    );
+  }
+
+  void _openDoctorQueue(AppUser doctor) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DoctorHomePage(doctorId: doctor.id),
       ),
     );
   }
