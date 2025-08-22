@@ -9,7 +9,9 @@ import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/data/models/app_user.dart';
 
 class DoctorHomePage extends StatefulWidget {
-  const DoctorHomePage({super.key});
+  final String doctorId;
+
+  const DoctorHomePage({super.key, required this.doctorId});
 
   @override
   State<DoctorHomePage> createState() => _DoctorHomePageState();
@@ -25,13 +27,14 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
   }
 
   Future<void> _loadDoctorInfo() async {
+    // Use the doctorId passed to the widget
     final doctor = await context.read<AuthCubit>().getCurrentUser();
     if (doctor != null && mounted) {
       setState(() {
         _currentDoctor = doctor;
       });
-      // Start listening to queue updates
-      context.read<DoctorCubit>().startListeningToQueue(doctor.id);
+      // Start listening to queue updates using the passed doctorId
+      context.read<DoctorCubit>().startListeningToQueue(widget.doctorId);
     }
   }
 
