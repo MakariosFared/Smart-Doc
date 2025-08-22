@@ -9,6 +9,7 @@ import 'Features/auth/index.dart';
 import 'Features/auth/presentation/view/role_selection_page.dart';
 import 'Features/auth/presentation/view/login_page.dart';
 import 'Features/auth/presentation/view/signup_page.dart';
+import 'Features/auth/presentation/view/doctors_list_page.dart';
 import 'Features/patient/presentation/view/home_patient_page.dart';
 import 'Features/patient/presentation/view/book_appointment_page.dart';
 import 'Features/queue/presentation/view/patient_queue_page.dart';
@@ -16,15 +17,24 @@ import 'Features/patient/presentation/view/questionnaire_screen.dart';
 import 'Features/patient/presentation/view/survey_screen.dart';
 import 'Features/patient/presentation/view/profile_page.dart';
 import 'Features/doctor/presentation/view/doctor_home_screen.dart';
+import 'Features/doctor/presentation/view/doctor_home_page.dart';
+import 'Features/doctor/presentation/cubit/doctor_cubit.dart';
 import 'Features/patient/presentation/cubit/booking_cubit.dart';
 import 'Features/patient/presentation/cubit/questionnaire_cubit.dart';
 import 'Features/patient/presentation/cubit/survey_cubit.dart';
 import 'Features/queue/presentation/cubit/queue_cubit.dart';
 import 'Features/patient/presentation/view/questionnaire_summary_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Disable offline persistence to always get fresh data from server
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: false,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
 
   // Initialize all dependencies
   await AppDependencyInjection.initialize();
@@ -55,6 +65,7 @@ class SmartDoc extends StatelessWidget {
         ),
         BlocProvider<SurveyCubit>(create: (context) => SurveyCubit()),
         BlocProvider<QueueCubit>(create: (context) => QueueCubit()),
+        BlocProvider<DoctorCubit>(create: (context) => DoctorCubit()),
       ],
       child: MaterialApp(
         title: 'Clinic Queue',
@@ -80,6 +91,10 @@ class SmartDoc extends StatelessWidget {
           },
           '/patient-home': (context) => const PatientHomeScreen(),
           '/doctor-home': (context) => const DoctorHomeScreen(),
+          '/doctors-list': (context) => const DoctorsListPage(),
+
+          // Doctor Feature Routes
+          '/doctor/queue': (context) => const DoctorHomePage(),
 
           // Patient Feature Routes
           '/patient/book-appointment': (context) => const BookAppointmentPage(),

@@ -171,6 +171,30 @@ class _PatientNavigationGrid extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12), // Reduced from 16
+        Row(
+          children: [
+            Expanded(
+              child: _NavigationCard(
+                title: "قائمة الأطباء",
+                subtitle: "عرض جميع الأطباء المتاحين",
+                icon: Icons.medical_services,
+                color: Colors.green,
+                onTap: () => Navigator.pushNamed(context, '/doctors-list'),
+              ),
+            ),
+            const SizedBox(width: 12), // Reduced from 16
+            Expanded(
+              child: _NavigationCard(
+                title: "الاستبيان الطبي",
+                subtitle: "أكمل الاستبيان الطبي",
+                icon: Icons.quiz,
+                color: Colors.purple,
+                onTap: () => Navigator.pushNamed(context, '/patient/survey'),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }

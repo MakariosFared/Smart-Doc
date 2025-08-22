@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_doc/Core/di/app_dependency_injection.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/firebase_auth_repository_impl.dart';
 import '../../data/models/app_user.dart';
 import 'auth_state.dart';
 
@@ -170,6 +171,22 @@ class AuthCubit extends Cubit<AuthState> {
       // For now, just emit a message - you can implement the actual check later
     } catch (e) {
       print('Error checking Firestore: $e');
+    }
+  }
+
+  /// Get all doctors from Firebase with fresh data
+  Future<List<AppUser>> getAllDoctors() async {
+    try {
+      // Clear any temporary storage first to ensure fresh data
+      if (_authRepository is FirebaseAuthRepositoryImpl) {
+        final firebaseRepo = _authRepository;
+        firebaseRepo.clearAllTempUsers();
+      }
+
+      return await _authRepository.getAllDoctors();
+    } catch (e) {
+      print('Error fetching doctors: $e');
+      return [];
     }
   }
 }

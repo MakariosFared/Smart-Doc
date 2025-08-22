@@ -356,4 +356,86 @@ class FirebaseAuthRepositoryImpl implements AuthRepository {
       return false;
     }
   }
+
+  @override
+  Future<List<AppUser>> getAllDoctors() async {
+    try {
+      print('🔄 Fetching fresh doctors data from Firebase...');
+
+      // Force fresh data from server, not from cache
+      final querySnapshot = await _usersCollection
+          .where('role', isEqualTo: 'doctor')
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 10));
+
+      final doctors = <AppUser>[];
+
+      for (final doc in querySnapshot.docs) {
+        try {
+          final userData = doc.data();
+          // Add the document ID to the data
+          userData['id'] = doc.id;
+          final doctor = AppUser.fromJson(userData);
+          doctors.add(doctor);
+          print('✅ Added doctor: ${doctor.name} (ID: ${doctor.id})');
+        } catch (e) {
+          print('❌ Error parsing doctor data for document ${doc.id}: $e');
+          // Continue with other documents
+        }
+      }
+
+      print(
+        '✅ Successfully fetched ${doctors.length} fresh doctors from Firebase server',
+      );
+      return doctors;
+    } on TimeoutException {
+      throw const AuthException(
+        'انتهت مهلة الاتصال بقاعدة البيانات. يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى.',
+        code: 'FIRESTORE_TIMEOUT',
+      );
+    } on FirebaseException catch (firestoreError) {
+      if (firestoreError.code == 'permission-denied') {
+        throw const AuthException(
+          'لا توجد صلاحيات للقراءة من قاعدة البيانات. يرجى التحقق من قواعد الأمان.',
+          code: 'FIRESTORE_PERMISSION_DENIED',
+        );
+      } else {
+        throw AuthException(
+          'خطأ في قاعدة البيانات: ${firestoreError.message}',
+          code: firestoreError.code,
+        );
+      }
+    } catch (e) {
+      if (e is AuthException) rethrow;
+      throw const AuthException('فشل في جلب قائمة الأطباء');
+    }
+  }
+
+  /// Clear all temporary user storage
+  void clearAllTempUsers() {
+    _tempUserStorage.clear();
+    print('🧹 Cleared all temporary user storage');
+  }
+
+  /// Clear temporary storage for a specific user
+  void clearTempUser(String userId) {
+    _tempUserStorage.remove(userId);
+    print('🧹 Cleared temporary storage for user: $userId');
+  }
+
+  /// Force refresh doctors data by clearing cache and fetching from server
+  Future<List<AppUser>> refreshDoctorsData() async {
+    try {
+      print('🔄 Force refreshing doctors data...');
+
+      // Clear any temporary storage
+      clearAllTempUsers();
+
+      // Fetch fresh data from server
+      return await getAllDoctors();
+    } catch (e) {
+      print('❌ Error refreshing doctors data: $e');
+      rethrow;
+    }
+  }
 }

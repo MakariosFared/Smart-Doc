@@ -5,9 +5,11 @@ import 'package:smart_doc/Features/patient/data/repositories/questionnaire_repos
 import 'package:smart_doc/Features/patient/data/repositories/survey_repository.dart';
 import 'package:smart_doc/Features/queue/data/repositories/firebase_queue_repository_impl.dart';
 import 'package:smart_doc/Features/patient/data/repositories/firebase_survey_repository_impl.dart';
-import 'package:smart_doc/Features/patient/data/repositories/mock_booking_repository_impl.dart';
+import 'package:smart_doc/Features/patient/data/repositories/firebase_booking_repository_impl.dart';
 import 'package:smart_doc/Features/patient/data/repositories/mock_questionnaire_repository_impl.dart';
 import 'package:smart_doc/Features/queue/data/repositories/queue_repository.dart';
+import 'package:smart_doc/Features/doctor/data/repositories/doctor_repository.dart';
+import 'package:smart_doc/Features/doctor/data/repositories/firebase_doctor_repository_impl.dart';
 
 /// Centralized dependency injection for the entire application
 class AppDependencyInjection {
@@ -32,10 +34,17 @@ class AppDependencyInjection {
     return _queueRepository!;
   }
 
+  // Doctor Dependencies
+  static DoctorRepository? _doctorRepository;
+  static DoctorRepository get doctorRepository {
+    _doctorRepository ??= FirebaseDoctorRepositoryImpl();
+    return _doctorRepository!;
+  }
+
   // Patient Dependencies
   static BookingRepository? _bookingRepository;
   static BookingRepository get bookingRepository {
-    _bookingRepository ??= MockBookingRepositoryImpl();
+    _bookingRepository ??= FirebaseBookingRepositoryImpl();
     return _bookingRepository!;
   }
 
@@ -55,6 +64,7 @@ class AppDependencyInjection {
   static void reset() {
     _authRepository = null;
     _queueRepository = null;
+    _doctorRepository = null;
     _bookingRepository = null;
     _questionnaireRepository = null;
     _surveyRepository = null;

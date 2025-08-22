@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum AppointmentStatus { pending, confirmed, completed, cancelled }
 
@@ -26,18 +27,32 @@ class Appointment extends Equatable {
   });
 
   factory Appointment.fromJson(Map<String, dynamic> json) {
+    // Helper function to parse timestamp fields
+    DateTime parseTimestamp(dynamic timestamp) {
+      if (timestamp is Timestamp) {
+        return timestamp.toDate();
+      } else if (timestamp is String) {
+        return DateTime.parse(timestamp);
+      } else if (timestamp is DateTime) {
+        return timestamp;
+      } else {
+        // Fallback to current time if timestamp is invalid
+        return DateTime.now();
+      }
+    }
+
     return Appointment(
       id: json['id'] as String,
       patientId: json['patientId'] as String,
       doctorId: json['doctorId'] as String,
       timeSlot: json['timeSlot'] as String,
-      appointmentDate: DateTime.parse(json['appointmentDate'] as String),
+      appointmentDate: parseTimestamp(json['appointmentDate']),
       status: AppointmentStatus.values.firstWhere(
         (status) => status.name == json['status'],
         orElse: () => AppointmentStatus.pending,
       ),
       notes: json['notes'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: parseTimestamp(json['createdAt']),
       questionnaireAnswers:
           json['questionnaireAnswers'] as Map<String, dynamic>?,
     );

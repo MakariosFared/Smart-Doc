@@ -37,6 +37,19 @@ class BookingCubit extends Cubit<BookingState> {
     }
   }
 
+  /// Get available time slots directly (for use in UI)
+  Future<List<String>> getAvailableTimeSlotsDirect(
+    String doctorId,
+    DateTime date,
+  ) async {
+    try {
+      return await _bookingRepository.getAvailableTimeSlots(doctorId, date);
+    } catch (e) {
+      // Return default time slots if there's an error
+      return ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
+    }
+  }
+
   /// Select a doctor for booking
   void selectDoctor(Doctor doctor) {
     emit(DoctorSelected(doctor));

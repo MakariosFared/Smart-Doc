@@ -18,14 +18,31 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   DateTime _selectedDate = DateTime.now();
   Doctor? _selectedDoctor;
   String? _selectedTimeSlot;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
     // Load available doctors when page initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<BookingCubit>().loadAvailableDoctors();
+      _loadDoctors();
     });
+  }
+
+  Future<void> _loadDoctors() async {
+    setState(() {
+      _isRefreshing = true;
+    });
+
+    try {
+      await context.read<BookingCubit>().loadAvailableDoctors();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
+    }
   }
 
   @override
@@ -60,7 +77,7 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
           }
         },
         builder: (context, state) {
-          if (state is BookingLoading) {
+          if (state is BookingLoading && !_isRefreshing) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is DoctorsLoaded) {
             return _buildDoctorsList(state.doctors);
@@ -78,6 +95,8 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
             );
           } else if (state is AppointmentCreating) {
             return _buildLoadingPage();
+          } else if (state is BookingFailure) {
+            return _buildErrorState(state.message);
           } else {
             return _buildDoctorsList([]);
           }
@@ -87,36 +106,122 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
   }
 
   Widget _buildDoctorsList(List<Doctor> doctors) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return RefreshIndicator(
+      onRefresh: _loadDoctors,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "اختر الدكتور",
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+                if (_isRefreshing)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              doctors.isEmpty
+                  ? "جاري البحث عن الأطباء المتاحين..."
+                  : "تم العثور على ${doctors.length} طبيب متاح",
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            if (doctors.isEmpty && !_isRefreshing)
+              _buildEmptyDoctorsState()
+            else if (doctors.isNotEmpty)
+              Expanded(
+                child: ListView.builder(
+                  itemCount: doctors.length,
+                  itemBuilder: (context, index) {
+                    final doctor = doctors[index];
+                    return _DoctorCard(
+                      doctor: doctor,
+                      onTap: () => _selectDoctor(doctor),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyDoctorsState() {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.medical_services, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              "لا يوجد أطباء متاحين",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "يرجى المحاولة مرة أخرى لاحقاً",
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            ),
+            const SizedBox(height: 24),
+            CustomButton(
+              text: "إعادة المحاولة",
+              onPressed: _loadDoctors,
+              type: ButtonType.primary,
+              icon: Icons.refresh,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String errorMessage) {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text(
-            "اختر الدكتور",
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+          const SizedBox(height: 16),
+          Text(
+            "حدث خطأ",
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: Colors.red.shade600,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            "اضغط على الدكتور لحجز موعد",
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+          Text(
+            errorMessage,
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          Expanded(
-            child: ListView.builder(
-              itemCount: doctors.length,
-              itemBuilder: (context, index) {
-                final doctor = doctors[index];
-                return _DoctorCard(
-                  doctor: doctor,
-                  onTap: () => _selectDoctor(doctor),
-                );
-              },
-            ),
+          CustomButton(
+            text: "إعادة المحاولة",
+            onPressed: _loadDoctors,
+            type: ButtonType.primary,
+            icon: Icons.refresh,
           ),
         ],
       ),
@@ -449,15 +554,15 @@ class _BookAppointmentPageState extends State<BookAppointmentPage> {
     String doctorId,
     DateTime date,
   ) async {
-    // This would typically call the repository, but for now we'll simulate it
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    // Return mock time slots based on the doctor
-    final doctor = _selectedDoctor;
-    if (doctor != null) {
-      return doctor.availableTimeSlots;
+    try {
+      return await context.read<BookingCubit>().getAvailableTimeSlotsDirect(
+        doctorId,
+        date,
+      );
+    } catch (e) {
+      // Fallback to default time slots if there's an error
+      return ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
     }
-    return [];
   }
 
   void _proceedToQuestionnaire(Doctor doctor, String timeSlot, DateTime date) {

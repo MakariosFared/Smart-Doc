@@ -13,4 +13,5 @@ export 'presentation/cubit/auth_state.dart';
 export 'presentation/view/login_page.dart';
 export 'presentation/view/signup_page.dart';
 export 'presentation/view/role_selection_page.dart';
+export 'presentation/view/doctors_list_page.dart';
 export 'presentation/view/widgets/index.dart';

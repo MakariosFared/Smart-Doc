@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Survey extends Equatable {
   final String id;
@@ -42,15 +43,15 @@ class SurveyData extends Equatable {
 
   @override
   List<Object?> get props => [
-        hasChronicDiseases,
-        chronicDiseasesDetails,
-        isTakingMedications,
-        medicationsDetails,
-        hasAllergies,
-        allergiesDetails,
-        symptoms,
-        symptomsDuration,
-      ];
+    hasChronicDiseases,
+    chronicDiseasesDetails,
+    isTakingMedications,
+    medicationsDetails,
+    hasAllergies,
+    allergiesDetails,
+    symptoms,
+    symptomsDuration,
+  ];
 }
 
 class SurveyModel extends Survey {
@@ -63,11 +64,24 @@ class SurveyModel extends Survey {
   });
 
   factory SurveyModel.fromJson(Map<String, dynamic> json) {
+    // Handle timestamp field which could be Timestamp, String, or DateTime
+    DateTime timestamp;
+    if (json['timestamp'] is Timestamp) {
+      timestamp = (json['timestamp'] as Timestamp).toDate();
+    } else if (json['timestamp'] is String) {
+      timestamp = DateTime.parse(json['timestamp'] as String);
+    } else if (json['timestamp'] is DateTime) {
+      timestamp = json['timestamp'] as DateTime;
+    } else {
+      // Fallback to current time if timestamp is invalid
+      timestamp = DateTime.now();
+    }
+
     return SurveyModel(
       id: json['id'] as String,
       patientId: json['patientId'] as String,
       doctorId: json['doctorId'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      timestamp: timestamp,
       data: SurveyDataModel.fromJson(json['data'] as Map<String, dynamic>),
     );
   }

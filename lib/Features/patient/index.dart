@@ -8,7 +8,7 @@ export 'data/models/survey_model.dart';
 export 'data/repositories/booking_repository.dart';
 export 'data/repositories/questionnaire_repository.dart';
 export 'data/repositories/survey_repository.dart';
-export 'data/repositories/mock_booking_repository_impl.dart';
+export 'data/repositories/firebase_booking_repository_impl.dart';
 export 'data/repositories/mock_questionnaire_repository_impl.dart';
 export 'data/repositories/firebase_survey_repository_impl.dart';
 

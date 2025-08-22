@@ -32,6 +32,12 @@ abstract class AuthRepository {
   ///
   /// Returns true if authenticated, false otherwise
   Future<bool> isAuthenticated();
+
+  /// Gets all users with doctor role
+  ///
+  /// Returns a list of all doctors from Firestore
+  /// Throws an [AuthException] if the operation fails
+  Future<List<AppUser>> getAllDoctors();
 }
 
 /// Custom exception for authentication errors

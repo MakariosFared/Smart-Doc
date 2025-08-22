@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum QuestionType { radio, checkbox, text, number }
 
@@ -78,6 +79,20 @@ class Questionnaire extends Equatable {
   });
 
   factory Questionnaire.fromJson(Map<String, dynamic> json) {
+    // Helper function to parse timestamp fields
+    DateTime parseTimestamp(dynamic timestamp) {
+      if (timestamp is Timestamp) {
+        return timestamp.toDate();
+      } else if (timestamp is String) {
+        return DateTime.parse(timestamp);
+      } else if (timestamp is DateTime) {
+        return timestamp;
+      } else {
+        // Fallback to current time if timestamp is invalid
+        return DateTime.now();
+      }
+    }
+
     return Questionnaire(
       id: json['id'] as String,
       title: json['title'] as String,
@@ -85,7 +100,7 @@ class Questionnaire extends Equatable {
       questions: (json['questions'] as List)
           .map((q) => Question.fromJson(q as Map<String, dynamic>))
           .toList(),
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: parseTimestamp(json['createdAt']),
     );
   }
 
@@ -119,12 +134,26 @@ class QuestionnaireResponse extends Equatable {
   });
 
   factory QuestionnaireResponse.fromJson(Map<String, dynamic> json) {
+    // Helper function to parse timestamp fields
+    DateTime parseTimestamp(dynamic timestamp) {
+      if (timestamp is Timestamp) {
+        return timestamp.toDate();
+      } else if (timestamp is String) {
+        return DateTime.parse(timestamp);
+      } else if (timestamp is DateTime) {
+        return timestamp;
+      } else {
+        // Fallback to current time if timestamp is invalid
+        return DateTime.now();
+      }
+    }
+
     return QuestionnaireResponse(
       id: json['id'] as String,
       questionnaireId: json['questionnaireId'] as String,
       patientId: json['patientId'] as String,
       answers: Map<String, dynamic>.from(json['answers'] as Map),
-      submittedAt: DateTime.parse(json['submittedAt'] as String),
+      submittedAt: parseTimestamp(json['submittedAt']),
     );
   }
 
