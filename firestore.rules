@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is a doctor
+    function isDoctor() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'doctor';
+    }
+    
+    // Helper function to check if user is a patient
+    function isPatient() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'patient';
+    }
+    
+    // Helper function to check if user is accessing their own data
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function to check if user is accessing doctor's data
+    function isDoctorOwner(doctorId) {
+      return isAuthenticated() && request.auth.uid == doctorId;
+    }
+
+    // Users collection - users can read/write their own data
+    match /users/{userId} {
+      // Users can read/write their own data
+      allow read, write: if isOwner(userId);
+      
+      // Doctors can read basic info of all users (for queue management)
+      allow read: if isDoctor();
+      
+      // Allow creation of new users (for signup)
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Allow updates to specific fields only
+      allow update: if isOwner(userId) && 
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'emailOrPhone', 'fcmToken', 'currentQueueStatus', 'currentDoctorId', 'lastStatusUpdate']);
+    }
+    
+    // Queues collection - doctors manage their own queues
+    match /queues/{doctorId} {
+      // Doctors can read/write their own queue
+      allow read, write: if isDoctorOwner(doctorId);
+      
+      // Patients can only read their own queue entry
+      match /patients/{patientId} {
+        allow read: if isAuthenticated() && 
+          (isOwner(patientId) || isDoctorOwner(doctorId));
+        allow write: if isDoctorOwner(doctorId);
+        
+        // Allow patients to read their own queue status
+        allow read: if isOwner(patientId);
+      }
+    }
+    
+    // Appointments collection
+    match /appointments/{appointmentId} {
+      allow read, write: if isAuthenticated() && 
+        (resource.data.patientId == request.auth.uid || 
+         resource.data.doctorId == request.auth.uid);
+      
+      // Allow creation of new appointments
+      allow create: if isAuthenticated() && 
+        request.resource.data.patientId == request.auth.uid;
+    }
+    
+    // Surveys collection
+    match /surveys/{doctorId} {
+      match /{patientId}/{surveyId} {
+        allow read, write: if isAuthenticated() && 
+          (isOwner(patientId) || isDoctorOwner(doctorId));
+        
+        // Allow patients to create surveys for themselves
+        allow create: if isAuthenticated() && 
+          request.resource.data.patientId == request.auth.uid;
+      }
+    }
+    
+    // Notifications collection - read-only for users, write-only for Cloud Functions
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && 
+        (resource.data.patientId == request.auth.uid || 
+         resource.data.doctorId == request.auth.uid);
+      allow write: if false; // Only Cloud Functions can write
+    }
+    
+    // Queue statistics collection (if you want to store aggregated data)
+    match /queue_statistics/{doctorId} {
+      allow read: if isAuthenticated() && 
+        (isDoctorOwner(doctorId) || isDoctor());
+      allow write: if isDoctorOwner(doctorId);
+    }
+    
+    // System settings collection (for app configuration)
+    match /system_settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isDoctor(); // Only doctors can modify system settings
+    }
+    
+    // Audit logs collection (for tracking important actions)
+    match /audit_logs/{logId} {
+      allow read: if isAuthenticated() && isDoctor();
+      allow write: if false; // Only Cloud Functions can write audit logs
+    }
+    
+    // Health check collection (for monitoring)
+    match /_health_check/{docId} {
+      allow read, write: if true; // Allow health checks
+    }
+  }
+}

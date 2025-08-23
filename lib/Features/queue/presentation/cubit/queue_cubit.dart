@@ -1,22 +1,14 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smart_doc/Core/di/app_dependency_injection.dart';
-import 'package:smart_doc/Core/Services/fcm_service.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../data/models/queue_entry_model.dart';
 import 'queue_state.dart';
 
 class QueueCubit extends Cubit<QueueState> {
   final QueueRepository _queueRepository;
-  StreamSubscription<QueueEntry?>? _queueSubscription;
-  StreamSubscription<List<QueueEntry>>? _queueListSubscription;
-
-  // Public getter for the repository
-  QueueRepository get queueRepository => _queueRepository;
-
-  // FCM notification tracking
-  int? _lastNotifiedPosition;
-  Timer? _notificationCheckTimer;
+  StreamSubscription<List<QueueEntry>>? _queueSubscription;
+  String? _currentDoctorId; // Track current doctor for reconnection
 
   QueueCubit({QueueRepository? queueRepository})
     : _queueRepository =
@@ -26,360 +18,257 @@ class QueueCubit extends Cubit<QueueState> {
   @override
   Future<void> close() {
     _queueSubscription?.cancel();
-    _queueListSubscription?.cancel();
-    _notificationCheckTimer?.cancel();
     return super.close();
   }
 
-  /// Join a doctor's queue
-  Future<void> joinQueue(
+  /// Start listening to real-time queue updates
+  void startListeningToQueue(String doctorId) {
+    if (doctorId.isEmpty) {
+      emit(const QueueError('Doctor ID cannot be empty'));
+      return;
+    }
+
+    // Stop previous subscription if exists
+    _queueSubscription?.cancel();
+
+    _currentDoctorId = doctorId;
+    emit(const QueueLoading());
+
+    print('🔄 Starting to listen to queue for doctor: $doctorId');
+
+    _queueSubscription = _queueRepository
+        .getQueueStream(doctorId)
+        .listen(
+          (entries) {
+            try {
+              if (entries.isEmpty) {
+                emit(const QueueEmpty('لا يوجد مرضى في الطابور حالياً'));
+              } else {
+                // Filter out invalid entries
+                final validEntries = entries.where((e) => e.isValid).toList();
+                if (validEntries.isEmpty) {
+                  emit(const QueueEmpty('لا يوجد مرضى صالحين في الطابور'));
+                } else {
+                  emit(QueueLoaded(validEntries));
+                }
+              }
+            } catch (e) {
+              print('❌ Error processing queue entries: $e');
+              emit(QueueError('فشل في معالجة بيانات الطابور: $e'));
+            }
+          },
+          onError: (error) {
+            print('❌ Error in queue stream: $error');
+            emit(QueueError('فشل في تحميل الطابور: $error'));
+          },
+        );
+  }
+
+  /// Stop listening to queue updates
+  void stopListeningToQueue() {
+    _queueSubscription?.cancel();
+    _currentDoctorId = null;
+    emit(const QueueInitial());
+    print('🛑 Stopped listening to queue updates');
+  }
+
+  /// Reconnect to queue if connection was lost
+  void reconnectToQueue() {
+    if (_currentDoctorId != null) {
+      print('🔄 Reconnecting to queue for doctor: $_currentDoctorId');
+      startListeningToQueue(_currentDoctorId!);
+    }
+  }
+
+  /// Update patient status
+  Future<void> updatePatientStatus(
+    String doctorId,
+    String patientId,
+    QueueStatus newStatus,
+  ) async {
+    try {
+      if (doctorId.isEmpty || patientId.isEmpty) {
+        emit(const QueueError('Doctor ID and Patient ID cannot be empty'));
+        return;
+      }
+
+      emit(QueueActionInProgress('جاري تحديث حالة المريض...'));
+
+      await _queueRepository.updatePatientStatus(
+        doctorId,
+        patientId,
+        newStatus,
+      );
+
+      emit(QueueActionCompleted('تم تحديث حالة المريض بنجاح'));
+
+      // Optionally refresh the queue
+      if (_currentDoctorId == doctorId) {
+        // Queue will automatically update via stream
+        print('✅ Queue will update automatically via stream');
+      }
+    } catch (e) {
+      print('❌ Error updating patient status: $e');
+      emit(QueueError('فشل في تحديث حالة المريض: $e'));
+    }
+  }
+
+  /// Add patient to queue
+  Future<void> addPatientToQueue(
     String doctorId,
     String patientId,
     String patientName,
   ) async {
     try {
-      emit(const QueueLoading());
+      if (doctorId.isEmpty || patientId.isEmpty || patientName.isEmpty) {
+        emit(const QueueError('جميع البيانات مطلوبة لإضافة المريض للطابور'));
+        return;
+      }
 
-      final queueEntry = await _queueRepository.joinQueue(
+      emit(QueueActionInProgress('جاري إضافة المريض للطابور...'));
+
+      await _queueRepository.addPatientToQueue(
         doctorId,
         patientId,
         patientName,
       );
-      emit(QueueJoined(queueEntry));
 
-      // Subscribe to FCM notifications for this patient
-      await _subscribeToPatientNotifications(patientId);
+      emit(QueueActionCompleted('تم إضافة المريض للطابور بنجاح'));
 
-      // Start listening to queue updates
-      _listenToQueueUpdates(doctorId, patientId);
-      _listenToDoctorQueue(doctorId);
-
-      // Start notification checking
-      _startNotificationChecking(doctorId, patientId);
+      // Queue will automatically update via stream
     } catch (e) {
-      if (e is QueueException) {
-        emit(QueueError(e.message, code: e.code));
-      } else {
-        emit(QueueError('فشل في الانضمام للطابور: $e'));
-      }
+      print('❌ Error adding patient to queue: $e');
+      emit(QueueError('فشل في إضافة المريض للطابور: $e'));
     }
   }
 
-  /// Leave the current queue
-  Future<void> leaveQueue(String doctorId, String patientId) async {
+  /// Remove patient from queue
+  Future<void> removePatientFromQueue(String doctorId, String patientId) async {
     try {
-      emit(const QueueLoading());
-
-      await _queueRepository.leaveQueue(doctorId, patientId);
-
-      // Cancel the subscriptions
-      _queueSubscription?.cancel();
-      _queueListSubscription?.cancel();
-      _notificationCheckTimer?.cancel();
-
-      // Unsubscribe from FCM notifications
-      await _unsubscribeFromPatientNotifications(patientId);
-
-      emit(const QueueLeft());
-    } catch (e) {
-      if (e is QueueException) {
-        emit(QueueError(e.message, code: e.code));
-      } else {
-        emit(QueueError('فشل في مغادرة الطابور: $e'));
+      if (doctorId.isEmpty || patientId.isEmpty) {
+        emit(const QueueError('Doctor ID and Patient ID cannot be empty'));
+        return;
       }
+
+      emit(QueueActionInProgress('جاري إزالة المريض من الطابور...'));
+
+      await _queueRepository.removePatientFromQueue(doctorId, patientId);
+
+      emit(QueueActionCompleted('تم إزالة المريض من الطابور بنجاح'));
+
+      // Queue will automatically update via stream
+    } catch (e) {
+      print('❌ Error removing patient from queue: $e');
+      emit(QueueError('فشل في إزالة المريض من الطابور: $e'));
     }
   }
 
-  /// Subscribe to patient-specific FCM notifications
-  Future<void> _subscribeToPatientNotifications(String patientId) async {
-    try {
-      if (fcmService.isInitialized) {
-        await fcmService.subscribeToPatientNotifications(patientId);
-        print('✅ Patient $patientId subscribed to FCM notifications');
-      }
-    } catch (e) {
-      print('⚠️ Failed to subscribe to FCM notifications: $e');
-    }
-  }
-
-  /// Unsubscribe from patient-specific FCM notifications
-  Future<void> _unsubscribeFromPatientNotifications(String patientId) async {
-    try {
-      if (fcmService.isInitialized) {
-        await fcmService.unsubscribeFromPatientNotifications(patientId);
-        print('✅ Patient $patientId unsubscribed from FCM notifications');
-      }
-    } catch (e) {
-      print('⚠️ Failed to unsubscribe from FCM notifications: $e');
-    }
-  }
-
-  /// Start periodic notification checking
-  void _startNotificationChecking(String doctorId, String patientId) {
-    _notificationCheckTimer?.cancel();
-    _notificationCheckTimer = Timer.periodic(const Duration(seconds: 30), (
-      timer,
-    ) {
-      _checkAndSendNotifications(doctorId, patientId);
-    });
-  }
-
-  /// Check queue position and send notifications if needed
-  Future<void> _checkAndSendNotifications(
-    String doctorId,
+  /// Get patient's current queue status
+  Future<QueueEntry?> getPatientQueueStatus(
     String patientId,
+    String doctorId,
   ) async {
     try {
-      final position = await getPatientQueuePositionNumber(doctorId, patientId);
-
-      if (position > 0 && position != _lastNotifiedPosition) {
-        _lastNotifiedPosition = position;
-
-        // Send local notification based on position
-        if (position == 1) {
-          _sendLocalNotification(
-            '🎉 دورك الآن!',
-            'يرجى التوجه للدكتور فوراً',
-            'queue_turn_now',
-          );
-        } else if (position == 2) {
-          _sendLocalNotification(
-            '⚠️ دورك قريب!',
-            'يرجى الاستعداد، دورك التالي',
-            'queue_turn_soon',
-          );
-        } else if (position == 3) {
-          _sendLocalNotification(
-            '📋 دورك قادم قريباً',
-            'يرجى الاستعداد، دورك في الطابور',
-            'queue_turn_coming',
-          );
-        }
+      if (patientId.isEmpty || doctorId.isEmpty) {
+        print('❌ Error: patientId and doctorId cannot be empty');
+        return null;
       }
+
+      return await _queueRepository.getPatientQueueStatus(patientId, doctorId);
     } catch (e) {
-      print('Error checking notifications: $e');
-    }
-  }
-
-  /// Send local notification
-  void _sendLocalNotification(String title, String body, String type) {
-    // This would typically use the FCM service or local notifications
-    // For now, we'll just print the notification
-    print('🔔 NOTIFICATION: $title - $body');
-
-    // You could also trigger a state change to show in-app notifications
-    // emit(QueueNotification(title, body, type));
-  }
-
-  /// Get current queue position for a patient
-  Future<QueueEntry?> getPatientQueuePosition(
-    String doctorId,
-    String patientId,
-  ) async {
-    try {
-      return await _queueRepository.getPatientQueuePosition(
-        doctorId,
-        patientId,
-      );
-    } catch (e) {
-      if (e is QueueException) {
-        emit(QueueError(e.message, code: e.code));
-      } else {
-        emit(QueueError('فشل في جلب موقع الطابور: $e'));
-      }
+      print('❌ Error getting patient queue status: $e');
+      emit(QueueError('فشل في جلب حالة المريض في الطابور: $e'));
       return null;
     }
   }
 
-  /// Get patient's position number in queue
-  Future<int> getPatientQueuePositionNumber(
-    String doctorId,
-    String patientId,
-  ) async {
-    try {
-      return await _queueRepository.getPatientQueuePositionNumber(
-        doctorId,
-        patientId,
+  /// Get current queue entries
+  List<QueueEntry> getCurrentQueue() {
+    if (state is QueueLoaded) {
+      return (state as QueueLoaded).entries;
+    }
+    return [];
+  }
+
+  /// Get next patient in queue
+  QueueEntry? getNextPatient() {
+    final queue = getCurrentQueue();
+    final waitingPatients = queue
+        .where((entry) => entry.status == QueueStatus.waiting)
+        .toList();
+
+    if (waitingPatients.isNotEmpty) {
+      // Sort by queue number if available
+      waitingPatients.sort(
+        (a, b) => (a.queueNumber ?? 0).compareTo(b.queueNumber ?? 0),
       );
-    } catch (e) {
-      if (e is QueueException) {
-        emit(QueueError(e.message, code: e.code));
-      } else {
-        emit(QueueError('فشل في جلب رقم الطابور: $e'));
-      }
-      return -1;
+      return waitingPatients.first;
     }
+    return null;
   }
 
-  /// Get current queue length for a doctor
-  Future<int> getQueueLength(String doctorId) async {
+  /// Get current patient being served
+  QueueEntry? getCurrentPatient() {
+    final queue = getCurrentQueue();
+    final inProgressPatients = queue
+        .where((entry) => entry.status == QueueStatus.inProgress)
+        .toList();
+
+    if (inProgressPatients.isNotEmpty) {
+      return inProgressPatients.first;
+    }
+    return null;
+  }
+
+  /// Get queue statistics
+  Map<String, dynamic>? getQueueStatistics() {
     try {
-      return await _queueRepository.getQueueLength(doctorId);
+      final queue = getCurrentQueue();
+      if (queue.isEmpty) return null;
+
+      final waitingCount = queue
+          .where((e) => e.status == QueueStatus.waiting)
+          .length;
+      final inProgressCount = queue
+          .where((e) => e.status == QueueStatus.inProgress)
+          .length;
+      final completedCount = queue
+          .where((e) => e.status == QueueStatus.done)
+          .length;
+      final cancelledCount = queue
+          .where((e) => e.status == QueueStatus.cancelled)
+          .length;
+
+      return {
+        'totalPatients': queue.length,
+        'waitingPatients': waitingCount,
+        'inProgressPatients': inProgressCount,
+        'completedPatients': completedCount,
+        'cancelledPatients': cancelledCount,
+        'lastUpdated': DateTime.now().toIso8601String(),
+      };
     } catch (e) {
-      if (e is QueueException) {
-        emit(QueueError(e.message, code: e.code));
-      } else {
-        emit(QueueError('فشل في جلب طول الطابور: $e'));
-      }
-      return 0;
+      print('❌ Error calculating queue statistics: $e');
+      return null;
     }
-  }
-
-  /// Listen to queue updates for a specific patient
-  void _listenToQueueUpdates(String doctorId, String patientId) {
-    _queueSubscription?.cancel();
-
-    _queueSubscription = _queueRepository
-        .listenToQueueUpdates(doctorId, patientId)
-        .listen(
-          (queueEntry) {
-            try {
-              if (queueEntry != null) {
-                emit(QueueUpdated(queueEntry));
-              } else {
-                // Patient is no longer in queue
-                emit(const QueueLeft());
-              }
-            } catch (e) {
-              print('Error in queue update listener: $e');
-              emit(QueueError('خطأ في معالجة تحديث الطابور: $e'));
-            }
-          },
-          onError: (error) {
-            print('Error in queue update stream: $error');
-            if (error is QueueException) {
-              emit(QueueError(error.message, code: error.code));
-            } else {
-              emit(QueueError('خطأ في الاستماع لتحديثات الطابور: $error'));
-            }
-          },
-        );
-  }
-
-  /// Listen to doctor's queue changes
-  void _listenToDoctorQueue(String doctorId) {
-    _queueListSubscription?.cancel();
-
-    _queueListSubscription = _queueRepository
-        .listenToDoctorQueue(doctorId)
-        .listen(
-          (queueList) {
-            try {
-              if (state is QueueJoined || state is QueueUpdated) {
-                final currentEntry = currentQueueEntry;
-                if (currentEntry != null) {
-                  // Update the current entry with the latest data
-                  try {
-                    final updatedEntry = queueList.firstWhere(
-                      (entry) => entry.patientId == currentEntry.patientId,
-                    );
-                    emit(QueueUpdated(updatedEntry));
-                  } catch (e) {
-                    // If patient is no longer in the queue, emit QueueLeft
-                    print(
-                      'Patient no longer found in queue: ${currentEntry.patientId}',
-                    );
-                    emit(const QueueLeft());
-                  }
-                }
-              }
-            } catch (e) {
-              print('Error in doctor queue listener: $e');
-              emit(QueueError('خطأ في معالجة تحديث طابور الدكتور: $e'));
-            }
-          },
-          onError: (error) {
-            print('Error in doctor queue stream: $error');
-            if (error is QueueException) {
-              emit(QueueError(error.message, code: error.code));
-            } else {
-              emit(QueueError('خطأ في الاستماع لتحديثات الطابور: $error'));
-            }
-          },
-        );
-  }
-
-  /// Check if patient is currently in a queue
-  bool get isInQueue => state is QueueJoined || state is QueueUpdated;
-
-  /// Get current queue entry
-  QueueEntry? get currentQueueEntry {
-    if (state is QueueJoined) {
-      return (state as QueueJoined).queueEntry;
-    } else if (state is QueueUpdated) {
-      return (state as QueueUpdated).queueEntry;
-    }
-    return null;
-  }
-
-  /// Get current queue status
-  QueueStatus? get currentQueueStatus => currentQueueEntry?.status;
-
-  /// Get current doctor ID
-  String? get currentDoctorId => currentQueueEntry?.doctorId;
-
-  /// Check if queue is loading
-  bool get isLoading => state is QueueLoading;
-
-  /// Check if there's an error
-  bool get hasError => state is QueueError;
-
-  /// Get error message
-  String? get errorMessage {
-    if (state is QueueError) {
-      return (state as QueueError).message;
-    }
-    return null;
   }
 
   /// Clear error state
   void clearError() {
-    try {
-      if (state is QueueError) {
-        // Try to restore previous state if possible
-        if (currentQueueEntry != null) {
-          emit(QueueUpdated(currentQueueEntry!));
-        } else {
-          emit(const QueueInitial());
-        }
+    if (state is QueueError) {
+      if (_currentDoctorId != null) {
+        // Try to reconnect
+        reconnectToQueue();
+      } else {
+        emit(const QueueInitial());
       }
-    } catch (e) {
-      print('Error clearing error state: $e');
-      emit(const QueueInitial());
     }
   }
 
-  /// Refresh queue status
-  Future<void> refreshQueueStatus() async {
-    try {
-      if (currentQueueEntry != null) {
-        final updatedEntry = await getPatientQueuePosition(
-          currentQueueEntry!.doctorId,
-          currentQueueEntry!.patientId,
-        );
+  /// Check if currently listening to a queue
+  bool get isListening =>
+      _queueSubscription != null && !_queueSubscription!.isPaused;
 
-        if (updatedEntry != null) {
-          emit(QueueUpdated(updatedEntry));
-        } else {
-          emit(const QueueLeft());
-        }
-      }
-    } catch (e) {
-      print('Error refreshing queue status: $e');
-      emit(QueueError('فشل في تحديث حالة الطابور: $e'));
-    }
-  }
-
-  /// Find all queues for a specific patient
-  Future<List<QueueEntry>> findPatientQueues(String patientId) async {
-    try {
-      // This method would need to be implemented in the repository
-      // For now, we'll return an empty list
-      // TODO: Implement this when the repository supports it
-      return [];
-    } catch (e) {
-      print('Error finding patient queues: $e');
-      return [];
-    }
-  }
+  /// Get current doctor ID being monitored
+  String? get currentDoctorId => _currentDoctorId;
 }

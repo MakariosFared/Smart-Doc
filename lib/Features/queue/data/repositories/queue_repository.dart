@@ -1,54 +1,31 @@
 import '../models/queue_entry_model.dart';
 
 abstract class QueueRepository {
-  /// Join a doctor's queue
-  /// Returns the queue entry with assigned queue number
-  Future<QueueEntry> joinQueue(
+  /// Get real-time stream of queue entries for a doctor
+  Stream<List<QueueEntry>> getQueueStream(String doctorId);
+
+  /// Update patient status in queue
+  Future<void> updatePatientStatus(
+    String doctorId,
+    String patientId,
+    QueueStatus newStatus,
+  );
+
+  /// Add patient to queue
+  Future<void> addPatientToQueue(
     String doctorId,
     String patientId,
     String patientName,
   );
 
-  /// Get current queue position for a patient
-  Future<QueueEntry?> getPatientQueuePosition(
-    String doctorId,
-    String patientId,
-  );
-
-  /// Get all patients in a doctor's queue
-  Future<List<QueueEntry>> getDoctorQueue(String doctorId);
-
-  /// Update queue status for a patient
-  Future<void> updateQueueStatus(
-    String doctorId,
-    String patientId,
-    QueueStatus status,
-  );
-
   /// Remove patient from queue
-  Future<void> leaveQueue(String doctorId, String patientId);
+  Future<void> removePatientFromQueue(String doctorId, String patientId);
 
-  /// Get current queue length for a doctor
-  Future<int> getQueueLength(String doctorId);
+  /// Get patient's current queue status
+  Future<QueueEntry?> getPatientQueueStatus(String patientId, String doctorId);
 
-  /// Get patient's position number in queue (1-based index)
-  Future<int> getPatientQueuePositionNumber(String doctorId, String patientId);
-
-  /// Stream to listen to queue updates for a specific patient
-  Stream<QueueEntry?> listenToQueueUpdates(String doctorId, String patientId);
-
-  /// Stream to listen to doctor's queue changes
-  Stream<List<QueueEntry>> listenToDoctorQueue(String doctorId);
-
-  /// Find all queues where a specific patient is present
-  /// This method searches across all doctors' queues
-  Future<List<QueueEntry>> findPatientQueues(String patientId);
-
-  /// Check if the required Firestore collection group index is available
-  Future<bool> isCollectionGroupIndexAvailable();
-
-  /// Get instructions for creating the required Firestore index
-  String getIndexCreationInstructions();
+  /// Get doctor's queue (non-stream version)
+  Future<List<QueueEntry>> getDoctorQueue(String doctorId);
 }
 
 /// Custom exception for queue operations

@@ -150,30 +150,7 @@ class _PatientNavigationGrid extends StatelessWidget {
                 onTap: () => Navigator.pushNamed(context, '/patient/profile'),
               ),
             ),
-            const SizedBox(width: 12), // Reduced from 16
-            Expanded(
-              child: _NavigationCard(
-                title: "ملخص الاستبيان",
-                subtitle: "عرض إجاباتك السابقة",
-                icon: Icons.assignment_turned_in,
-                color: Colors.indigo,
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  '/patient/questionnaire-summary',
-                  arguments: {
-                    'doctorId': 'general',
-                    'timeSlot': 'general',
-                    'appointmentDate': DateTime.now(),
-                    'isNewBooking': false,
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12), // Reduced from 16
-        Row(
-          children: [
+            const SizedBox(width: 12),
             Expanded(
               child: _NavigationCard(
                 title: "قائمة الأطباء",
@@ -181,16 +158,6 @@ class _PatientNavigationGrid extends StatelessWidget {
                 icon: Icons.medical_services,
                 color: Colors.green,
                 onTap: () => Navigator.pushNamed(context, '/doctors-list'),
-              ),
-            ),
-            const SizedBox(width: 12), // Reduced from 16
-            Expanded(
-              child: _NavigationCard(
-                title: "الاستبيان الطبي",
-                subtitle: "أكمل الاستبيان الطبي",
-                icon: Icons.quiz,
-                color: Colors.purple,
-                onTap: () => Navigator.pushNamed(context, '/patient/survey'),
               ),
             ),
           ],

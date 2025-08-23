@@ -3,10 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../auth/presentation/view/widgets/common_app_bar.dart';
 import '../../../auth/presentation/view/widgets/custom_button.dart';
 import '../cubit/doctor_cubit.dart';
-import '../cubit/doctor_state.dart';
-import '../../data/models/doctor_queue_patient.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../auth/data/models/app_user.dart';
+import '../../../queue/presentation/cubit/queue_cubit.dart';
+import '../../../queue/presentation/cubit/queue_state.dart' as queue_state;
+import '../../../queue/data/models/queue_entry_model.dart';
 
 class DoctorHomePage extends StatefulWidget {
   final String? doctorId;
@@ -19,7 +20,9 @@ class DoctorHomePage extends StatefulWidget {
 
 class _DoctorHomePageState extends State<DoctorHomePage> {
   AppUser? _currentDoctor;
-  DoctorCubit? _doctorCubit; // Store reference to cubit
+  DoctorCubit? _doctorCubit;
+  QueueCubit? _queueCubit;
+  String? _targetDoctorId;
 
   @override
   void initState() {
@@ -30,45 +33,59 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Store reference to cubit when dependencies change
+    // Store references to cubits when dependencies change
     _doctorCubit = context.read<DoctorCubit>();
+    _queueCubit = context.read<QueueCubit>();
   }
 
   Future<void> _loadDoctorInfo() async {
-    // Use the passed doctorId if available, otherwise get the current logged-in doctor
-    String targetDoctorId;
-
-    if (widget.doctorId != null) {
-      targetDoctorId = widget.doctorId!;
-      // For now, we'll still get the current user for display purposes
-      // In a real app, you might want to fetch the target doctor's info
-      final doctor = await context.read<AuthCubit>().getCurrentUser();
-      if (doctor != null && mounted) {
-        setState(() {
-          _currentDoctor = doctor;
-        });
-      }
-    } else {
-      // Get the current logged-in doctor
-      final doctor = await context.read<AuthCubit>().getCurrentUser();
-      if (doctor != null && mounted) {
-        setState(() {
-          _currentDoctor = doctor;
-        });
-        targetDoctorId = doctor.id;
+    try {
+      // Use the passed doctorId if available, otherwise get the current logged-in doctor
+      if (widget.doctorId != null) {
+        _targetDoctorId = widget.doctorId!;
+        // For now, we'll still get the current user for display purposes
+        // In a real app, you might want to fetch the target doctor's info
+        final doctor = await context.read<AuthCubit>().getCurrentUser();
+        if (doctor != null && mounted) {
+          setState(() {
+            _currentDoctor = doctor;
+          });
+        }
       } else {
-        return;
+        // Get the current logged-in doctor
+        final doctor = await context.read<AuthCubit>().getCurrentUser();
+        if (doctor != null && mounted) {
+          setState(() {
+            _currentDoctor = doctor;
+            _targetDoctorId = doctor.id;
+          });
+        } else {
+          return;
+        }
+      }
+
+      // Start listening to real-time queue updates for the target doctor
+      if (_targetDoctorId != null) {
+        context.read<QueueCubit>().startListeningToQueue(_targetDoctorId!);
+      }
+    } catch (e) {
+      print('❌ Error loading doctor info: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل في تحميل بيانات الدكتور: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
-
-    // Start listening to queue updates for the target doctor
-    context.read<DoctorCubit>().startListeningToQueue(targetDoctorId);
   }
 
   @override
   void dispose() {
-    // Use stored reference instead of context.read
+    // Use stored references instead of context.read
     _doctorCubit?.stopListeningToQueue();
+    _queueCubit?.stopListeningToQueue();
     super.dispose();
   }
 
@@ -80,9 +97,9 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
         backgroundColor: Colors.green,
         automaticallyImplyLeading: false,
       ),
-      body: BlocConsumer<DoctorCubit, DoctorState>(
+      body: BlocConsumer<QueueCubit, queue_state.QueueState>(
         listener: (context, state) {
-          if (state is PatientActionCompleted) {
+          if (state is queue_state.QueueActionCompleted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -90,7 +107,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
                 duration: const Duration(seconds: 3),
               ),
             );
-          } else if (state is DoctorError) {
+          } else if (state is queue_state.QueueError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -101,36 +118,70 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
           }
         },
         builder: (context, state) {
-          if (state is DoctorLoading) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state is QueueLoaded) {
-            return _buildQueueContent(state);
-          } else if (state is QueueEmpty) {
+          if (state is queue_state.QueueLoading) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('جاري تحميل الطابور...'),
+                ],
+              ),
+            );
+          } else if (state is queue_state.QueueLoaded) {
+            return _buildQueueContent(state.entries);
+          } else if (state is queue_state.QueueEmpty) {
             return _buildEmptyQueue(state.message);
-          } else if (state is DoctorError) {
+          } else if (state is queue_state.QueueError) {
             return _buildErrorState(state.message);
           } else {
-            return const Center(child: Text('جاري التحميل...'));
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.queue, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('جاري التحميل...'),
+                ],
+              ),
+            );
           }
         },
       ),
     );
   }
 
-  Widget _buildQueueContent(QueueLoaded state) {
+  Widget _buildQueueContent(List<QueueEntry> entries) {
+    // Filter out invalid entries
+    final validEntries = entries.where((e) => e.isValid).toList();
+
+    if (validEntries.isEmpty) {
+      return _buildEmptyQueue('لا يوجد مرضى صالحين في الطابور');
+    }
+
     return Column(
       children: [
-        _buildHeader(state),
+        _buildHeader(validEntries),
         const SizedBox(height: 16),
-        _buildCurrentPatientSection(state.currentPatient),
+        _buildCurrentPatientSection(validEntries),
         const SizedBox(height: 16),
-        _buildQueueList(state.patients),
+        _buildQueueList(validEntries),
       ],
     );
   }
 
-  Widget _buildHeader(QueueLoaded state) {
-    final stats = state.statistics;
+  Widget _buildHeader(List<QueueEntry> entries) {
+    final waitingCount = entries
+        .where((e) => e.status == QueueStatus.waiting)
+        .length;
+    final inProgressCount = entries
+        .where((e) => e.status == QueueStatus.inProgress)
+        .length;
+    final completedCount = entries
+        .where((e) => e.status == QueueStatus.done)
+        .length;
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
@@ -185,7 +236,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
                 child: Column(
                   children: [
                     Text(
-                      "${state.patients.length}",
+                      "${entries.length}",
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -205,19 +256,19 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
             ],
           ),
           const SizedBox(height: 20),
-          _buildStatisticsRow(stats),
+          _buildStatisticsRow(waitingCount, inProgressCount, completedCount),
         ],
       ),
     );
   }
 
-  Widget _buildStatisticsRow(Map<String, dynamic> stats) {
+  Widget _buildStatisticsRow(int waiting, int inProgress, int completed) {
     return Row(
       children: [
         Expanded(
           child: _buildStatCard(
             "في الانتظار",
-            "${stats['waitingPatients'] ?? 0}",
+            "$waiting",
             Colors.orange,
             Icons.pending,
           ),
@@ -226,7 +277,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
         Expanded(
           child: _buildStatCard(
             "قيد المعالجة",
-            "${stats['inProgressPatients'] ?? 0}",
+            "$inProgress",
             Colors.blue,
             Icons.medical_services,
           ),
@@ -235,7 +286,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
         Expanded(
           child: _buildStatCard(
             "مكتمل",
-            "${stats['completedPatients'] ?? 0}",
+            "$completed",
             Colors.green,
             Icons.check_circle,
           ),
@@ -279,8 +330,20 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
     );
   }
 
-  Widget _buildCurrentPatientSection(DoctorQueuePatient? currentPatient) {
-    if (currentPatient == null) {
+  Widget _buildCurrentPatientSection(List<QueueEntry> entries) {
+    final currentPatient = entries.firstWhere(
+      (e) => e.status == QueueStatus.inProgress,
+      orElse: () => QueueEntry(
+        id: '',
+        patientId: '',
+        patientName: '',
+        doctorId: '',
+        status: QueueStatus.waiting,
+        timestamp: DateTime.now(),
+      ),
+    );
+
+    if (currentPatient.id.isEmpty) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
         padding: const EdgeInsets.all(20),
@@ -334,7 +397,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
                 radius: 25,
                 backgroundColor: Colors.blue.shade600,
                 child: Text(
-                  "${currentPatient.queueNumber}",
+                  "${currentPatient.displayQueueNumber}",
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -356,7 +419,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "انضم في: ${_formatTime(currentPatient.joinedAt)}",
+                      "انضم في: ${_formatTime(currentPatient.timestamp)}",
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey.shade600,
@@ -396,8 +459,10 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
     );
   }
 
-  Widget _buildQueueList(List<DoctorQueuePatient> patients) {
-    final waitingPatients = patients.where((p) => p.isWaiting).toList();
+  Widget _buildQueueList(List<QueueEntry> entries) {
+    final waitingPatients = entries
+        .where((p) => p.status == QueueStatus.waiting)
+        .toList();
 
     if (waitingPatients.isEmpty) {
       return Expanded(
@@ -458,7 +523,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
     );
   }
 
-  Widget _buildQueueItem(DoctorQueuePatient patient, int position) {
+  Widget _buildQueueItem(QueueEntry patient, int position) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -483,7 +548,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
           ),
           child: Center(
             child: Text(
-              "${patient.queueNumber}",
+              "${patient.displayQueueNumber}",
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -497,7 +562,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         ),
         subtitle: Text(
-          "انضم في: ${_formatTime(patient.joinedAt)}",
+          "انضم في: ${_formatTime(patient.timestamp)}",
           style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
         ),
         trailing: Row(
@@ -570,9 +635,9 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
           CustomButton(
             text: "إعادة المحاولة",
             onPressed: () {
-              if (_currentDoctor != null) {
-                context.read<DoctorCubit>().startListeningToQueue(
-                  _currentDoctor!.id,
+              if (_targetDoctorId != null) {
+                context.read<QueueCubit>().startListeningToQueue(
+                  _targetDoctorId!,
                 );
               }
             },
@@ -598,37 +663,42 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
     }
   }
 
-  void _viewPatientQuestionnaire(DoctorQueuePatient patient) {
-    Navigator.pushNamed(
-      context,
-      '/doctor/patient-questionnaire',
-      arguments: patient,
+  void _viewPatientQuestionnaire(QueueEntry patient) {
+    // TODO: Implement questionnaire view
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("عرض استبيان المريض: ${patient.patientName}"),
+        backgroundColor: Colors.blue,
+      ),
     );
   }
 
-  void _startServingPatient(DoctorQueuePatient patient) {
-    if (_currentDoctor != null) {
-      context.read<DoctorCubit>().startServingPatient(
-        _currentDoctor!.id,
+  void _startServingPatient(QueueEntry patient) {
+    if (_targetDoctorId != null) {
+      context.read<QueueCubit>().updatePatientStatus(
+        _targetDoctorId!,
         patient.patientId,
+        QueueStatus.inProgress,
       );
     }
   }
 
-  void _completePatient(DoctorQueuePatient patient) {
-    if (_currentDoctor != null) {
-      context.read<DoctorCubit>().completePatient(
-        _currentDoctor!.id,
+  void _completePatient(QueueEntry patient) {
+    if (_targetDoctorId != null) {
+      context.read<QueueCubit>().updatePatientStatus(
+        _targetDoctorId!,
         patient.patientId,
+        QueueStatus.done,
       );
     }
   }
 
-  void _skipPatient(DoctorQueuePatient patient) {
-    if (_currentDoctor != null) {
-      context.read<DoctorCubit>().skipPatient(
-        _currentDoctor!.id,
+  void _skipPatient(QueueEntry patient) {
+    if (_targetDoctorId != null) {
+      context.read<QueueCubit>().updatePatientStatus(
+        _targetDoctorId!,
         patient.patientId,
+        QueueStatus.cancelled,
       );
     }
   }

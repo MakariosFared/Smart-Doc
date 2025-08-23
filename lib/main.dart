@@ -28,27 +28,69 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Disable offline persistence to always get fresh data from server
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: false,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-  );
-
-  // Initialize all dependencies
-  await AppDependencyInjection.initialize();
-
-  // Initialize FCM service for push notifications
   try {
-    await fcmService.initialize();
-    print('✅ FCM Service initialized successfully');
-  } catch (e) {
-    print('⚠️ FCM Service initialization failed: $e');
-    // Continue without FCM if it fails
-  }
+    // Initialize Firebase
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
-  runApp(const SmartDoc());
+    // Configure Firestore settings for optimal performance
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled:
+          false, // Disable offline persistence for real-time updates
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+
+    // Initialize dependency injection
+    await AppDependencyInjection.initialize();
+
+    // Initialize FCM service for push notifications
+    try {
+      await fcmService.initialize();
+      print('✅ FCM Service initialized successfully');
+    } catch (e) {
+      print('⚠️ FCM Service initialization failed: $e');
+      // Continue without FCM if it fails
+    }
+
+    runApp(const SmartDoc());
+  } catch (e) {
+    print('❌ Critical error during app initialization: $e');
+    // Show error screen or handle gracefully
+    runApp(const _ErrorApp());
+  }
+}
+
+/// Error app to show when initialization fails
+class _ErrorApp extends StatelessWidget {
+  const _ErrorApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text(
+                'فشل في تهيئة التطبيق',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'يرجى إعادة تشغيل التطبيق',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class SmartDoc extends StatelessWidget {
@@ -70,14 +112,17 @@ class SmartDoc extends StatelessWidget {
       child: MaterialApp(
         title: 'Clinic Queue',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(primarySwatch: Colors.blue),
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          useMaterial3: true, // Enable Material 3 design
+        ),
         supportedLocales: const [Locale('en'), Locale('ar')],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        locale: const Locale('ar'), // مؤقتًا خليها عربي، هنخليها dynamic بعدين
+        locale: const Locale('ar'), // Default to Arabic
         initialRoute: '/',
         routes: {
           '/': (context) => const RoleSelectionPage(),

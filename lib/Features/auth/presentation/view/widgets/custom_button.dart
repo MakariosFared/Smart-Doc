@@ -51,6 +51,7 @@ class CustomButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: _getBackgroundColor(),
           foregroundColor: _getForegroundColor(),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
         child: isLoading
             ? const SizedBox(
@@ -61,12 +62,26 @@ class CustomButton extends StatelessWidget {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (icon != null) ...[Icon(icon), const SizedBox(width: 8)],
-                  Text(text, style: const TextStyle(fontSize: 18)),
-                ],
+            : FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: 18),
+                      const SizedBox(width: 6),
+                    ],
+                    Flexible(
+                      child: Text(
+                        text,
+                        style: const TextStyle(fontSize: 16),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
       ),
     );

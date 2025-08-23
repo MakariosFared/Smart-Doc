@@ -53,23 +53,6 @@ class HomePageTemplate extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 20),
-                  Icon(icon, size: 80, color: themeColor),
-                  const SizedBox(height: 16),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    "هذه صفحة مؤقتة - سيتم إضافة الميزات لاحقاً",
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
                   if (additionalWidgets != null) ...[
                     const SizedBox(height: 24),
                     ...additionalWidgets!,

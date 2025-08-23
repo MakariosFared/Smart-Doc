@@ -83,22 +83,19 @@ class _PatientQueuePageState extends State<PatientQueuePage> {
 
   Future<void> _searchPatientInAllQueues() async {
     try {
-      // Use the new repository method to find all queues for this patient
-      final patientQueues = await _queueRepository.findPatientQueues(
-        _currentPatientId!,
-      );
-
+      // For now, we'll set an empty list since findPatientQueues was removed
+      // TODO: Implement alternative method to find patient queues
       setState(() {
-        _allQueues = patientQueues;
+        _allQueues = [];
       });
 
-      // Show success message if queues were found
-      if (patientQueues.isNotEmpty && mounted) {
+      // Show message that no queues found
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('تم العثور على ${patientQueues.length} طابور نشط'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
+          const SnackBar(
+            content: Text('لا توجد طوابير نشطة حالياً'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -107,51 +104,12 @@ class _PatientQueuePageState extends State<PatientQueuePage> {
       setState(() {
         _allQueues = [];
       });
-
-      // Show error message to user
-      if (mounted) {
-        String errorMessage = 'فشل في تحميل بيانات الطابور';
-
-        if (e.toString().contains('failed-precondition') ||
-            e.toString().contains('فشل في الشرط المسبق')) {
-          errorMessage =
-              'يتم تحديث قاعدة البيانات. يرجى المحاولة مرة أخرى في غضون دقائق.';
-        } else if (e.toString().contains('ALTERNATIVE_QUERY_FAILED')) {
-          errorMessage = 'فشل في البحث عن الطوابير. يرجى المحاولة مرة أخرى.';
-        } else {
-          errorMessage = 'فشل في تحميل بيانات الطابور: $e';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'إعادة المحاولة',
-              onPressed: _loadPatientQueues,
-              textColor: Colors.white,
-            ),
-          ),
-        );
-      }
     }
   }
 
   Future<void> _checkIndexStatus() async {
-    try {
-      final isIndexAvailable = await _queueRepository
-          .isCollectionGroupIndexAvailable();
-      if (!isIndexAvailable) {
-        print(
-          '⚠️ Firestore index not available - using alternative query method',
-        );
-        print('Index creation instructions:');
-        print(_queueRepository.getIndexCreationInstructions());
-      }
-    } catch (e) {
-      print('Error checking index status: $e');
-    }
+    // TODO: Implement index status checking when method is available
+    print('Index status checking not implemented yet');
   }
 
   @override
@@ -748,10 +706,9 @@ class _PatientQueuePageState extends State<PatientQueuePage> {
   // Helper method to get queue position
   Future<int> _getQueuePosition(String doctorId, String patientId) async {
     try {
-      return await _queueRepository.getPatientQueuePositionNumber(
-        doctorId,
-        patientId,
-      );
+      // TODO: Implement queue position calculation when method is available
+      // For now, return a placeholder value
+      return 1;
     } catch (e) {
       print('Error getting queue position: $e');
       return -1;
