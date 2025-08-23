@@ -23,6 +23,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
   DoctorCubit? _doctorCubit;
   QueueCubit? _queueCubit;
   String? _targetDoctorId;
+  List<QueueEntry> _lastKnownQueueEntries = []; // Store last known queue data
 
   @override
   void initState() {
@@ -97,57 +98,110 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
         backgroundColor: Colors.green,
         automaticallyImplyLeading: false,
       ),
-      body: BlocConsumer<QueueCubit, queue_state.QueueState>(
-        listener: (context, state) {
-          if (state is queue_state.QueueActionCompleted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 3),
-              ),
-            );
-          } else if (state is queue_state.QueueError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 3),
-              ),
-            );
+      body: RefreshIndicator(
+        onRefresh: () async {
+          if (_targetDoctorId != null) {
+            context.read<QueueCubit>().refreshQueue();
           }
         },
-        builder: (context, state) {
-          if (state is queue_state.QueueLoading) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+        child: BlocConsumer<QueueCubit, queue_state.QueueState>(
+          listener: (context, state) {
+            if (state is queue_state.QueueActionCompleted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            } else if (state is queue_state.QueueError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          },
+          builder: (context, state) {
+            if (state is queue_state.QueueLoading) {
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('جاري تحميل الطابور...'),
+                  ],
+                ),
+              );
+            } else if (state is queue_state.QueueActionInProgress) {
+              // Show loading overlay while action is in progress
+              return Stack(
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('جاري تحميل الطابور...'),
+                  // Show the last known queue state if available, or a placeholder
+                  _buildQueueContent(
+                    _lastKnownQueueEntries.isNotEmpty
+                        ? _lastKnownQueueEntries
+                        : [],
+                  ),
+                  // Loading overlay
+                  Container(
+                    color: Colors.black.withOpacity(0.3),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 16),
+                            Text(
+                              state.message,
+                              style: const TextStyle(fontSize: 16),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
-              ),
-            );
-          } else if (state is queue_state.QueueLoaded) {
-            return _buildQueueContent(state.entries);
-          } else if (state is queue_state.QueueEmpty) {
-            return _buildEmptyQueue(state.message);
-          } else if (state is queue_state.QueueError) {
-            return _buildErrorState(state.message);
-          } else {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.queue, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('جاري التحميل...'),
-                ],
-              ),
-            );
-          }
-        },
+              );
+            } else if (state is queue_state.QueueLoaded) {
+              // Store the latest queue entries for use during loading states
+              _lastKnownQueueEntries = state.entries;
+              return _buildQueueContent(state.entries);
+            } else if (state is queue_state.QueueEmpty) {
+              return _buildEmptyQueue(state.message);
+            } else if (state is queue_state.QueueError) {
+              return _buildErrorState(state.message);
+            } else {
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.queue, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text('جاري التحميل...'),
+                  ],
+                ),
+              );
+            }
+          },
+        ),
       ),
     );
   }
@@ -431,28 +485,40 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: CustomButton(
-                  text: "عرض الاستبيان",
-                  onPressed: () => _viewPatientQuestionnaire(currentPatient),
-                  type: ButtonType.primary,
-                  icon: Icons.quiz,
-                  height: 45,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: CustomButton(
-                  text: "إنهاء الخدمة",
-                  onPressed: () => _completePatient(currentPatient),
-                  type: ButtonType.success,
-                  icon: Icons.check,
-                  height: 45,
-                ),
-              ),
-            ],
+          BlocBuilder<QueueCubit, queue_state.QueueState>(
+            builder: (context, queueState) {
+              final isActionInProgress =
+                  queueState is queue_state.QueueActionInProgress;
+
+              return Row(
+                children: [
+                  Expanded(
+                    child: CustomButton(
+                      text: "عرض الاستبيان",
+                      onPressed: () =>
+                          _viewPatientQuestionnaire(currentPatient),
+                      type: ButtonType.primary,
+                      icon: Icons.quiz,
+                      height: 45,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: CustomButton(
+                      text: isActionInProgress ? "جاري..." : "إنهاء الخدمة",
+                      onPressed: isActionInProgress
+                          ? null
+                          : () => _completePatient(currentPatient),
+                      type: ButtonType.success,
+                      icon: isActionInProgress
+                          ? Icons.hourglass_empty
+                          : Icons.check,
+                      height: 45,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -565,25 +631,62 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
           "انضم في: ${_formatTime(patient.timestamp)}",
           style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              onPressed: () => _viewPatientQuestionnaire(patient),
-              icon: Icon(Icons.quiz, color: Colors.blue.shade600),
-              tooltip: "عرض الاستبيان",
-            ),
-            IconButton(
-              onPressed: () => _startServingPatient(patient),
-              icon: Icon(Icons.play_arrow, color: Colors.green.shade600),
-              tooltip: "بدء الخدمة",
-            ),
-            IconButton(
-              onPressed: () => _skipPatient(patient),
-              icon: Icon(Icons.skip_next, color: Colors.orange.shade600),
-              tooltip: "تخطي المريض",
-            ),
-          ],
+        trailing: BlocBuilder<QueueCubit, queue_state.QueueState>(
+          builder: (context, queueState) {
+            final isActionInProgress =
+                queueState is queue_state.QueueActionInProgress;
+            final isCurrentPatientAction =
+                isActionInProgress &&
+                (queueState as queue_state.QueueActionInProgress).message
+                    .contains('المريض');
+
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  onPressed: () => _viewPatientQuestionnaire(patient),
+                  icon: Icon(Icons.quiz, color: Colors.blue.shade600),
+                  tooltip: "عرض الاستبيان",
+                ),
+                IconButton(
+                  onPressed: isActionInProgress
+                      ? null
+                      : () => _startServingPatient(patient),
+                  icon: isActionInProgress && isCurrentPatientAction
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.green.shade600,
+                            ),
+                          ),
+                        )
+                      : Icon(Icons.play_arrow, color: Colors.green.shade600),
+                  tooltip: "بدء الخدمة",
+                ),
+                IconButton(
+                  onPressed: isActionInProgress
+                      ? null
+                      : () => _skipPatient(patient),
+                  icon: isActionInProgress && isCurrentPatientAction
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.orange.shade600,
+                            ),
+                          ),
+                        )
+                      : Icon(Icons.skip_next, color: Colors.orange.shade600),
+                  tooltip: "تخطي المريض",
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

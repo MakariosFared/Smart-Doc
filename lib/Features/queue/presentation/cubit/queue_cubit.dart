@@ -102,14 +102,40 @@ class QueueCubit extends Cubit<QueueState> {
 
       emit(QueueActionCompleted('تم تحديث حالة المريض بنجاح'));
 
-      // Optionally refresh the queue
+      // Force refresh the queue to ensure immediate update
       if (_currentDoctorId == doctorId) {
-        // Queue will automatically update via stream
-        print('✅ Queue will update automatically via stream');
+        print('✅ Forcing queue refresh after status update');
+        // Restart the stream to get fresh data
+        _queueSubscription?.cancel();
+        startListeningToQueue(doctorId);
       }
+
+      // Clear the completed state after a delay to return to normal state
+      Future.delayed(const Duration(seconds: 2), () {
+        if (state is QueueActionCompleted) {
+          // Only clear if we're still in completed state
+          if (_currentDoctorId != null) {
+            emit(QueueLoaded(getCurrentQueue()));
+          }
+        }
+      });
     } catch (e) {
       print('❌ Error updating patient status: $e');
       emit(QueueError('فشل في تحديث حالة المريض: $e'));
+
+      // Return to the last known good state after error
+      Future.delayed(const Duration(seconds: 3), () {
+        if (state is QueueError && _currentDoctorId != null) {
+          // Try to restore the last known queue state
+          final currentQueue = getCurrentQueue();
+          if (currentQueue.isNotEmpty) {
+            emit(QueueLoaded(currentQueue));
+          } else {
+            // If no current queue, restart listening
+            startListeningToQueue(_currentDoctorId!);
+          }
+        }
+      });
     }
   }
 
@@ -135,7 +161,22 @@ class QueueCubit extends Cubit<QueueState> {
 
       emit(QueueActionCompleted('تم إضافة المريض للطابور بنجاح'));
 
-      // Queue will automatically update via stream
+      // Force refresh the queue to ensure immediate update
+      if (_currentDoctorId == doctorId) {
+        print('✅ Forcing queue refresh after adding patient');
+        _queueSubscription?.cancel();
+        startListeningToQueue(doctorId);
+      }
+
+      // Clear the completed state after a delay to return to normal state
+      Future.delayed(const Duration(seconds: 2), () {
+        if (state is QueueActionCompleted) {
+          // Only clear if we're still in completed state
+          if (_currentDoctorId != null) {
+            emit(QueueLoaded(getCurrentQueue()));
+          }
+        }
+      });
     } catch (e) {
       print('❌ Error adding patient to queue: $e');
       emit(QueueError('فشل في إضافة المريض للطابور: $e'));
@@ -156,7 +197,22 @@ class QueueCubit extends Cubit<QueueState> {
 
       emit(QueueActionCompleted('تم إزالة المريض من الطابور بنجاح'));
 
-      // Queue will automatically update via stream
+      // Force refresh the queue to ensure immediate update
+      if (_currentDoctorId == doctorId) {
+        print('✅ Forcing queue refresh after removing patient');
+        _queueSubscription?.cancel();
+        startListeningToQueue(doctorId);
+      }
+
+      // Clear the completed state after a delay to return to normal state
+      Future.delayed(const Duration(seconds: 2), () {
+        if (state is QueueActionCompleted) {
+          // Only clear if we're still in completed state
+          if (_currentDoctorId != null) {
+            emit(QueueLoaded(getCurrentQueue()));
+          }
+        }
+      });
     } catch (e) {
       print('❌ Error removing patient from queue: $e');
       emit(QueueError('فشل في إزالة المريض من الطابور: $e'));
@@ -188,6 +244,15 @@ class QueueCubit extends Cubit<QueueState> {
       return (state as QueueLoaded).entries;
     }
     return [];
+  }
+
+  /// Manually refresh the queue data
+  Future<void> refreshQueue() async {
+    if (_currentDoctorId != null) {
+      print('🔄 Manually refreshing queue for doctor: $_currentDoctorId');
+      _queueSubscription?.cancel();
+      startListeningToQueue(_currentDoctorId!);
+    }
   }
 
   /// Get next patient in queue
