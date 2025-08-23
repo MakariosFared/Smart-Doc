@@ -8,6 +8,8 @@ import '../../../auth/data/models/app_user.dart';
 import '../../../queue/presentation/cubit/queue_cubit.dart';
 import '../../../queue/presentation/cubit/queue_state.dart' as queue_state;
 import '../../../queue/data/models/queue_entry_model.dart';
+import '../../data/models/doctor_queue_patient.dart';
+import 'patient_questionnaire_page.dart';
 
 class DoctorHomePage extends StatefulWidget {
   final String? doctorId;
@@ -767,13 +769,59 @@ class _DoctorHomePageState extends State<DoctorHomePage> {
   }
 
   void _viewPatientQuestionnaire(QueueEntry patient) {
-    // TODO: Implement questionnaire view
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("عرض استبيان المريض: ${patient.patientName}"),
-        backgroundColor: Colors.blue,
-      ),
-    );
+    try {
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('جاري تحميل استبيان المريض...'),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Get the current queue to calculate the patient's position
+      final currentQueue = context.read<QueueCubit>().getCurrentQueue();
+      final waitingPatients = currentQueue
+          .where((p) => p.status == QueueStatus.waiting)
+          .toList();
+
+      // Sort by queue number if available, otherwise by timestamp
+      waitingPatients.sort((a, b) {
+        if (a.queueNumber != null && b.queueNumber != null) {
+          return a.queueNumber!.compareTo(b.queueNumber!);
+        }
+        return a.timestamp.compareTo(b.timestamp);
+      });
+
+      // Find the patient's position in the waiting queue
+      final patientIndex = waitingPatients.indexWhere(
+        (p) => p.id == patient.id,
+      );
+      final queueNumber = patientIndex >= 0 ? patientIndex + 1 : 1;
+
+      // Convert QueueEntry to DoctorQueuePatient
+      final doctorQueuePatient = DoctorQueuePatient.fromQueueEntry(
+        patient,
+        queueNumber,
+      );
+
+      // Navigate to the patient questionnaire page
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              PatientQuestionnairePage(patient: doctorQueuePatient),
+        ),
+      );
+    } catch (e) {
+      print('❌ Error viewing patient questionnaire: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('فشل في عرض استبيان المريض: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _startServingPatient(QueueEntry patient) {

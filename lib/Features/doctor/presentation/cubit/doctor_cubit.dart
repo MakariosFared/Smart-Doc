@@ -145,7 +145,12 @@ class DoctorCubit extends Cubit<DoctorState> {
       final medicalHistory = results[1] as Map<String, dynamic>?;
 
       if (questionnaire == null) {
-        emit(DoctorError('لم يتم العثور على استبيان للمريض'));
+        print('⚠️ No questionnaire found for patient $patientId');
+        emit(
+          DoctorError(
+            'لم يتم العثور على استبيان للمريض. يرجى التأكد من أن المريض قد أكمل الاستبيان.',
+          ),
+        );
         return;
       }
 

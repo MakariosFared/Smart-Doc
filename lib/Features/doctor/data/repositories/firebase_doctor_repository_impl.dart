@@ -130,6 +130,10 @@ class FirebaseDoctorRepositoryImpl implements DoctorRepository {
     String doctorId,
   ) async {
     try {
+      print(
+        '🔍 Fetching questionnaire for patient $patientId from doctor $doctorId',
+      );
+
       final querySnapshot = await _firestore
           .collection('surveys')
           .doc(doctorId)
@@ -138,11 +142,24 @@ class FirebaseDoctorRepositoryImpl implements DoctorRepository {
           .limit(1)
           .get();
 
-      if (querySnapshot.docs.isEmpty) return null;
+      print('📊 Found ${querySnapshot.docs.length} questionnaire documents');
+
+      if (querySnapshot.docs.isEmpty) {
+        print(
+          '⚠️ No questionnaire found for patient $patientId from doctor $doctorId',
+        );
+        return null;
+      }
 
       final doc = querySnapshot.docs.first;
-      return SurveyModel.fromJson({'id': doc.id, ...doc.data()});
+      print('✅ Found questionnaire document: ${doc.id}');
+
+      final data = doc.data();
+      print('📋 Questionnaire data keys: ${data.keys.toList()}');
+
+      return SurveyModel.fromJson({'id': doc.id, ...data});
     } catch (e) {
+      print('❌ Error fetching questionnaire: $e');
       throw DoctorException('فشل في جلب استبيان المريض: $e');
     }
   }
